@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bible Scramble: Blitz Edition</title>
+    <style>
+        :root {
+            --bg-color: #f8fafc;
+            --card-bg: #ffffff;
+            --primary: #6366f1;
+            --primary-hover: #4f46e5;
+            --success: #22c55e;
+            --error: #ef4444;
+            --text: #0f172a;
+            --text-muted: #64748b;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', system-ui, sans-serif; }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .game-container {
+            background: var(--card-bg);
+            padding: 30px;
+            border-radius: 24px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 420px;
+            text-align: center;
+            position: relative;
+        }
+
+        /* Timer Styling */
+        .timer-container {
+            position: relative;
+            width: 60px;
+            height: 60px;
+            margin: 0 auto 20px;
+        }
+
+        .timer-svg {
+            transform: rotate(-90deg);
+            width: 60px;
+            height: 60px;
+        }
+
+        .timer-circle-bg {
+            fill: none;
+            stroke: #e2e8f0;
+            stroke-width: 4;
+        }
+
+        .timer-circle-prog {
+            fill: none;
+            stroke: var(--primary);
+            stroke-width: 4;
+            stroke-linecap: round;
+            transition: stroke-dashoffset 1s linear, stroke 0.3s;
+            stroke-dasharray: 175.9; /* 2 * PI * r (28) */
+        }
+
+        #timer-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-weight: 700;
+            font-size: 0.9rem;
+        }
+
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .score-board { background: #eff6ff; color: var(--primary); padding: 6px 14px; border-radius: 99px; font-weight: 700; font-size: 0.85rem; }
+
+        .scrambled-word {
+            font-size: 2.2rem;
+            font-weight: 800;
+            letter-spacing: 3px;
+            color: var(--primary);
+            margin: 15px 0;
+            text-transform: uppercase;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 14px;
+            font-size: 1.1rem;
+            border: 2px solid #f1f5f9;
+            background: #f8fafc;
+            border-radius: 12px;
+            outline: none;
+            text-align: center;
+            margin-bottom: 12px;
+        }
+
+        input[type="text"]:focus { border-color: var(--primary); background: #fff; }
+
+        .btn {
+            width: 100%;
+            padding: 14px;
+            font-size: 1rem;
+            font-weight: 600;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:disabled { background: #cbd5e1; cursor: not-allowed; }
+
+        .feedback { margin-top: 15px; font-weight: 600; min-height: 24px; }
+        .correct { color: var(--success); }
+        .wrong { color: var(--error); }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+    <div class="game-container">
+        <div class="header">
+            <span style="font-weight: 800; opacity: 0.5;">BIBLE BLITZ</span>
+            <div class="score-board">SCORE: <span id="score">0</span></div>
+        </div>
+
+        <div id="game-box">
+            <!-- Circular Timer -->
+            <div class="timer-container">
+                <svg class="timer-svg">
+                    <circle class="timer-circle-bg" cx="30" cy="30" r="28"></circle>
+                    <circle id="progress" class="timer-circle-prog" cx="30" cy="30" r="28" style="stroke-dashoffset: 0;"></circle>
+                </svg>
+                <div id="timer-text">15</div>
+            </div>
+
+            <div class="scrambled-word" id="scrambled-target">----</div>
+
+            <input type="text" id="user-guess" placeholder="Who is it?" autocomplete="off">
+            <button class="btn btn-primary" id="action-btn">Submit</button>
+            <div class="feedback" id="feedback-msg"></div>
+        </div>
+
+        <div id="completion-box" class="hidden">
+            <h2 style="font-size: 1.8rem; margin-bottom: 10px;">Game Over!</h2>
+            <p id="final-stats" style="margin-bottom: 20px; color: var(--text-muted);"></p>
+            <button class="btn btn-primary" onclick="resetGame()">Try Again</button>
+        </div>
+    </div>
+
+    <script>
+        const sourceWords = ["Elizabeth", "Peter", "Abraham", "Elijah", "Lazarus", "Moses", "Gideon", "Samson", "Deborah", "Solomon"];
+        let gameQuestions = [];
+        let currentIndex = 0;
+        let score = 0;
+        let isAnswered = false;
+        
+        // Timer settings
+        const TIME_LIMIT = 15;
+        let timeLeft = TIME_LIMIT;
+        let timerInterval = null;
+
+        const scrambledEl = document.getElementById('scrambled-target');
+        const guessInput = document.getElementById('user-guess');
+        const actionBtn = document.getElementById('action-btn');
+        const feedbackEl = document.getElementById('feedback-msg');
+        const scoreEl = document.getElementById('score');
+        const timerText = document.getElementById('timer-text');
+        const progressCircle = document.getElementById('progress');
+        const gameBox = document.getElementById('game-box');
+        const completionBox = document.getElementById('completion-box');
+
+        function scrambleWord(word) {
+            let arr = word.toUpperCase().split('');
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            return arr.join('');
+        }
+
+        function prepareGameData() {
+            gameQuestions = sourceWords.map(name => ({
+                correct: name,
+                scrambled: scrambleWord(name)
+            })).sort(() => Math.random() - 0.5);
+        }
+
+        function startTimer() {
+            clearInterval(timerInterval);
+            timeLeft = TIME_LIMIT;
+            updateTimerUI();
+            
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                updateTimerUI();
+                
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    handleTimeOut();
+                }
+            }, 1000);
+        }
+
+        function updateTimerUI() {
+            timerText.textContent = timeLeft;
+            const offset = 175.9 - (175.9 * timeLeft / TIME_LIMIT);
+            progressCircle.style.strokeDashoffset = offset;
+            
+            // Change color to red when low
+            progressCircle.style.stroke = timeLeft <= 5 ? "var(--error)" : "var(--primary)";
+        }
+
+        function handleTimeOut() {
+            if (isAnswered) return;
+            isAnswered = true;
+            guessInput.disabled = true;
+            feedbackEl.textContent = `⏰ Time's up! It was ${gameQuestions[currentIndex].correct}`;
+            feedbackEl.className = "feedback wrong";
+            actionBtn.textContent = "Next Name";
+            actionBtn.style.backgroundColor = "#374151";
+        }
+
+        function loadQuestion() {
+            if (currentIndex >= gameQuestions.length) {
+                showCompletion();
+                return;
+            }
+            isAnswered = false;
+            scrambledEl.textContent = gameQuestions[currentIndex].scrambled;
+            guessInput.value = "";
+            guessInput.disabled = false;
+            guessInput.focus();
+            feedbackEl.textContent = "";
+            feedbackEl.className = "feedback";
+            actionBtn.textContent = "Submit";
+            actionBtn.style.backgroundColor = "var(--primary)";
+            startTimer();
+        }
+
+        function checkAnswer() {
+            clearInterval(timerInterval);
+            const currentWord = gameQuestions[currentIndex];
+            const userGuess = guessInput.value.trim().toLowerCase();
+            isAnswered = true;
+            guessInput.disabled = true;
+
+            if (userGuess === currentWord.correct.toLowerCase()) {
+                score++;
+                scoreEl.textContent = score;
+                feedbackEl.textContent = "✅ Excellent!";
+                feedbackEl.className = "feedback correct";
+            } else {
+                feedbackEl.textContent = `❌ Not quite! It's ${currentWord.correct}`;
+                feedbackEl.className = "feedback wrong";
+            }
+
+            actionBtn.textContent = "Next Name";
+            actionBtn.style.backgroundColor = "#374151";
+        }
+
+        function handleInteraction() {
+            if (!isAnswered) {
+                checkAnswer();
+            } else {
+                currentIndex++;
+                loadQuestion();
+            }
+        }
+
+        function showCompletion() {
+            clearInterval(timerInterval);
+            gameBox.classList.add('hidden');
+            completionBox.classList.remove('hidden');
+            document.getElementById('final-stats').textContent = `Final Score: ${score} / ${gameQuestions.length}`;
+        }
+
+        function resetGame() {
+            currentIndex = 0; score = 0;
+            scoreEl.textContent = "0";
+            completionBox.classList.add('hidden');
+            gameBox.classList.remove('hidden');
+            prepareGameData();
+            loadQuestion();
+        }
+
+        actionBtn.addEventListener('click', handleInteraction);
+        guessInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') handleInteraction(); });
+
+        prepareGameData();
+        loadQuestion();
+    </script>
+</body>
+</html>

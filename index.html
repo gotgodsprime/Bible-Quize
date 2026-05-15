@@ -3,20 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bible Blitz: Word Scramble</title>
+    <title>Bible Scramble: Streak Master</title>
     <style>
         :root {
-            --bg: #f0f4f8;
+            --bg: #f8fafc;
             --card: #ffffff;
             --primary: #6366f1;
-            --accent: #818cf8;
             --success: #10b981;
             --error: #ef4444;
+            --streak: #f59e0b;
             --text-main: #1e293b;
             --text-sub: #64748b;
         }
 
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, sans-serif; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
 
         body {
             background-color: var(--bg);
@@ -26,178 +26,165 @@
             align-items: center;
             min-height: 100vh;
             padding: 20px;
-            overflow: hidden;
         }
 
-        .game-card {
+        .container {
             background: var(--card);
-            padding: 40px 30px;
-            border-radius: 30px;
-            box-shadow: 0 20px 50px rgba(0,0,0,0.1);
+            padding: 30px;
+            border-radius: 24px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.08);
             width: 100%;
             max-width: 400px;
             text-align: center;
             position: relative;
-            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
 
-        /* Animations */
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-8px); }
-            75% { transform: translateX(8px); }
+        /* Dashboard Stats */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin: 20px 0;
         }
-        .shake { animation: shake 0.4s ease-in-out; }
+        .stat-card { background: #f1f5f9; padding: 12px; border-radius: 15px; }
+        .stat-val { font-size: 1.4rem; font-weight: 800; color: var(--primary); display: block; }
+        .stat-label { font-size: 0.7rem; color: var(--text-sub); text-transform: uppercase; font-weight: 700; }
+        .stat-streak { color: var(--streak); }
 
-        @keyframes pulse {
-            0% { transform: translate(-50%, -50%) scale(1); }
-            50% { transform: translate(-50%, -50%) scale(1.15); color: var(--error); }
-            100% { transform: translate(-50%, -50%) scale(1); }
-        }
-
-        /* Timer UI */
-        .timer-box {
-            position: relative;
-            width: 80px;
-            height: 80px;
-            margin: 0 auto 20px;
-        }
-        .timer-svg { transform: rotate(-90deg); width: 80px; height: 80px; }
-        .timer-bg { fill: none; stroke: #e2e8f0; stroke-width: 6; }
-        .timer-progress {
-            fill: none;
-            stroke: var(--primary);
-            stroke-width: 6;
-            stroke-linecap: round;
-            stroke-dasharray: 226; /* 2 * PI * 36 */
-            transition: stroke-dashoffset 1s linear, stroke 0.3s;
-        }
-        #timer-text {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
+        /* Streak Counter UI */
+        #active-streak-ui {
+            background: var(--streak);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 99px;
             font-weight: 800;
-            font-size: 1.2rem;
-        }
-        .low-time #timer-text { animation: pulse 0.5s infinite; }
-
-        /* Gameplay UI */
-        .scrambled {
-            font-size: 2.4rem;
-            font-weight: 900;
-            letter-spacing: 5px;
-            color: var(--primary);
-            margin-bottom: 25px;
-            text-transform: uppercase;
-        }
-
-        input {
-            width: 100%;
-            padding: 16px;
-            border: 2px solid #e2e8f0;
-            border-radius: 15px;
-            font-size: 1.1rem;
-            text-align: center;
-            outline: none;
-            transition: 0.2s;
-            background: #f8fafc;
-        }
-        input:focus { border-color: var(--primary); background: #fff; box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1); }
-
-        .btn {
-            width: 100%;
-            padding: 16px;
-            margin-top: 15px;
-            border: none;
-            border-radius: 15px;
-            background: var(--primary);
-            color: white;
-            font-weight: 700;
-            font-size: 1rem;
-            cursor: pointer;
-            transition: 0.3s;
-        }
-        .btn:active { transform: scale(0.98); }
-        .btn-next { background: var(--text-main); }
-
-        .score-tag {
-            position: absolute;
-            top: -15px;
-            right: 20px;
-            background: var(--primary);
-            color: white;
-            padding: 5px 15px;
-            border-radius: 10px;
-            font-weight: 700;
             font-size: 0.8rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            margin-bottom: 10px;
+            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
+        .streak-pop { transform: scale(1.3); }
 
-        .feedback { margin-top: 15px; font-weight: 700; height: 20px; }
+        /* Game Elements */
+        .timer-box { position: relative; width: 70px; height: 70px; margin: 10px auto 15px; }
+        .timer-svg { transform: rotate(-90deg); width: 70px; height: 70px; }
+        .timer-bg { fill: none; stroke: #e2e8f0; stroke-width: 5; }
+        .timer-prog { fill: none; stroke: var(--primary); stroke-width: 5; stroke-dasharray: 201; transition: 1s linear; stroke-linecap: round; }
+        
+        .scrambled { font-size: 2.2rem; font-weight: 900; letter-spacing: 4px; color: var(--primary); margin: 15px 0; text-transform: uppercase; }
+        input { width: 100%; padding: 15px; border-radius: 12px; border: 2px solid #e2e8f0; text-align: center; font-size: 1.1rem; margin-bottom: 10px; outline: none; }
+        
+        .btn { width: 100%; padding: 16px; border: none; border-radius: 12px; font-weight: 700; cursor: pointer; transition: 0.2s; background: var(--primary); color: white; }
+        .btn-next { background: #334155; }
+
+        .hidden { display: none !important; }
+
+        .diff-selector { display: flex; gap: 8px; margin-bottom: 20px; }
+        .diff-btn { flex: 1; padding: 10px; border: 2px solid #e2e8f0; background: none; border-radius: 10px; cursor: pointer; font-weight: 600; font-size: 0.8rem; }
+        .diff-btn.active { border-color: var(--primary); background: #f5f3ff; color: var(--primary); }
     </style>
 </head>
 <body>
 
-    <div class="game-card" id="card">
-        <div class="score-tag">SCORE: <span id="score">0</span></div>
-        
-        <div id="game-view">
-            <div class="timer-box" id="timer-container">
-                <svg class="timer-svg">
-                    <circle class="timer-bg" cx="40" cy="40" r="36"></circle>
-                    <circle id="progress" class="timer-progress" cx="40" cy="40" r="36"></circle>
-                </svg>
-                <div id="timer-text">15</div>
+    <div class="container">
+        <!-- 🏠 DASHBOARD -->
+        <div id="dash-view">
+            <h1 style="font-size: 1.8rem; margin-bottom: 5px;">Bible Scramble</h1>
+            <p style="color: var(--text-sub); font-size: 0.9rem; margin-bottom: 20px;">Can you beat your best streak?</p>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <span class="stat-val" id="total-games">0</span>
+                    <span class="stat-label">Games</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-val stat-streak" id="best-streak">0</span>
+                    <span class="stat-label">Best Streak</span>
+                </div>
+            </div>
+
+            <div class="diff-selector">
+                <button class="diff-btn active" onclick="setDiff(20, this)">Easy</button>
+                <button class="diff-btn" onclick="setDiff(12, this)">Normal</button>
+                <button class="diff-btn" onclick="setDiff(7, this)">Expert</button>
+            </div>
+
+            <button class="btn" onclick="startGame()">Start Blitz</button>
+        </div>
+
+        <!-- 🎮 GAMEPLAY -->
+        <div id="game-view" class="hidden">
+            <div id="active-streak-ui" class="hidden">🔥 Streak: <span id="current-streak-val">0</span></div>
+            
+            <div class="timer-box">
+                <svg class="timer-svg"><circle class="timer-bg" cx="35" cy="35" r="32"></circle><circle id="progress" class="timer-prog" cx="35" cy="35" r="32"></circle></svg>
+                <div id="timer-text" style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-weight:800;">15</div>
             </div>
 
             <div class="scrambled" id="display-word">----</div>
-            <input type="text" id="input-box" placeholder="Type name..." autocomplete="off">
-            <button class="btn" id="main-btn">Check Answer</button>
-            <div class="feedback" id="msg"></div>
+            <input type="text" id="input-box" placeholder="Your guess..." autocomplete="off">
+            <button class="btn" id="action-btn">Submit</button>
+            <div id="msg" style="margin-top:15px; font-weight:700; min-height:20px; font-size: 0.9rem;"></div>
         </div>
 
-        <div id="end-view" style="display: none;">
-            <h1 style="font-size: 2rem;">Game Over!</h1>
-            <p id="final-score" style="margin: 15px 0 25px; color: var(--text-sub);"></p>
-            <button class="btn" onclick="resetGame()">Play Again</button>
+        <!-- 🏁 FINISH -->
+        <div id="end-view" class="hidden">
+            <h2 style="font-size: 1.8rem;">Game Over</h2>
+            <p id="final-stats" style="margin: 20px 0; color: var(--text-sub);"></p>
+            <button class="btn" onclick="showDash()">Dashboard</button>
         </div>
     </div>
 
     <script>
-        const names = ["Elizabeth", "Peter", "Abraham", "Elijah", "Lazarus", "Moses", "David", "Gideon", "Esther", "Samuel"];
-        let current = 0, score = 0, timeLeft = 15, timer = null, isReadyForNext = false;
-        let sessionWords = [];
+        const names = ["Elizabeth", "Peter", "Abraham", "Elijah", "Lazarus", "Moses", "David", "Gideon", "Esther", "Samuel", "Ruth", "Solomon", "Joshua", "Goliath", "Mary"];
+        let current = 0, score = 0, currentStreak = 0, timeLimit = 20, timeLeft = 20, timer = null;
+        let sessionWords = [], isAnswered = false;
 
-        const card = document.getElementById('card');
-        const input = document.getElementById('input-box');
-        const btn = document.getElementById('main-btn');
-        const display = document.getElementById('display-word');
-        const progress = document.getElementById('progress');
-        const timeLabel = document.getElementById('timer-text');
-        const timerCont = document.getElementById('timer-container');
+        let stats = JSON.parse(localStorage.getItem('bibleStatsV2')) || { games: 0, bestStreak: 0 };
 
-        function scramble(word) {
-            let a = word.toUpperCase().split(''), n = a.length;
-            for(let i = n - 1; i > 0; i--) {
-                let j = Math.floor(Math.random() * (i + 1));
-                [a[i], a[j]] = [a[j], a[i]];
-            }
-            return a.join('') === word.toUpperCase() ? scramble(word) : a.join('');
+        function updateDashUI() {
+            document.getElementById('total-games').textContent = stats.games;
+            document.getElementById('best-streak').textContent = stats.bestStreak;
         }
 
-        function initGame() {
+        function setDiff(t, btn) {
+            timeLimit = t;
+            document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+        }
+
+        function startGame() {
+            stats.games++;
+            save();
+            updateDashUI();
+            
             sessionWords = names.map(n => ({ original: n, scrambled: scramble(n) })).sort(() => Math.random() - 0.5);
-            load();
+            current = 0; score = 0; currentStreak = 0;
+            document.getElementById('dash-view').classList.add('hidden');
+            document.getElementById('game-view').classList.remove('hidden');
+            updateStreakUI();
+            loadWord();
         }
 
-        function load() {
-            if(current >= sessionWords.length) return showEnd();
-            isReadyForNext = false;
-            display.textContent = sessionWords[current].scrambled;
-            input.value = ""; input.disabled = false; input.focus();
-            btn.textContent = "Check Answer"; btn.className = "btn";
+        function scramble(w) {
+            let a = w.toUpperCase().split(''), i = a.length;
+            while(i--) { let j = Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
+            return a.join('') === w.toUpperCase() ? scramble(w) : a.join('');
+        }
+
+        function loadWord() {
+            if(current >= 10) return finishGame(); // 10 rounds per game
+            isAnswered = false;
+            timeLeft = timeLimit;
+            document.getElementById('display-word').textContent = sessionWords[current].scrambled;
+            document.getElementById('input-box').value = "";
+            document.getElementById('input-box').disabled = false;
+            document.getElementById('input-box').focus();
+            document.getElementById('action-btn').textContent = "Submit";
+            document.getElementById('action-btn').className = "btn";
             document.getElementById('msg').textContent = "";
-            timeLeft = 15;
             startTimer();
         }
 
@@ -207,72 +194,78 @@
             timer = setInterval(() => {
                 timeLeft--;
                 updateTimerUI();
-                if(timeLeft <= 0) { clearInterval(timer); fail("Time's Up!"); }
+                if(timeLeft <= 0) { clearInterval(timer); endTurn(false, "Out of Time!"); }
             }, 1000);
         }
 
         function updateTimerUI() {
-            timeLabel.textContent = timeLeft;
-            let offset = 226 - (226 * timeLeft / 15);
-            progress.style.strokeDashoffset = offset;
-            if(timeLeft <= 5) {
-                timerCont.classList.add('low-time');
-                progress.style.stroke = "var(--error)";
+            document.getElementById('timer-text').textContent = timeLeft;
+            let offset = 201 - (201 * timeLeft / timeLimit);
+            document.getElementById('progress').style.strokeDashoffset = offset;
+            document.getElementById('progress').style.stroke = timeLeft <= 3 ? "var(--error)" : "var(--primary)";
+        }
+
+        function handleBtn() {
+            if(!isAnswered) {
+                let user = document.getElementById('input-box').value.trim().toLowerCase();
+                let correct = sessionWords[current].original.toLowerCase();
+                if(user === correct) { 
+                    score++; 
+                    currentStreak++;
+                    if(currentStreak > stats.bestStreak) stats.bestStreak = currentStreak;
+                    endTurn(true, "Correct!"); 
+                } else { 
+                    currentStreak = 0;
+                    endTurn(false, "Oops! It was " + sessionWords[current].original); 
+                }
+                updateStreakUI();
             } else {
-                timerCont.classList.remove('low-time');
-                progress.style.stroke = "var(--primary)";
+                current++; loadWord();
             }
         }
 
-        function check() {
-            clearInterval(timer);
-            let user = input.value.trim().toLowerCase();
-            let correct = sessionWords[current].original.toLowerCase();
-
-            if(user === correct) {
-                score++;
-                document.getElementById('score').textContent = score;
-                document.getElementById('msg').innerHTML = "<span style='color:var(--success)'>✨ Correct!</span>";
+        function updateStreakUI() {
+            const ui = document.getElementById('active-streak-ui');
+            const val = document.getElementById('current-streak-val');
+            if(currentStreak > 0) {
+                ui.classList.remove('hidden');
+                val.textContent = currentStreak;
+                ui.classList.add('streak-pop');
+                setTimeout(() => ui.classList.remove('streak-pop'), 200);
             } else {
-                fail("Incorrect!");
+                ui.classList.add('hidden');
             }
-            finishStep();
         }
 
-        function fail(reason) {
+        function endTurn(correct, txt) {
             clearInterval(timer);
-            navigator.vibrate?.([100, 50, 100]);
-            card.classList.add('shake');
-            setTimeout(() => card.classList.remove('shake'), 400);
-            document.getElementById('msg').innerHTML = `<span style='color:var(--error)'>${reason} It was ${sessionWords[current].original}</span>`;
-            finishStep();
+            isAnswered = true;
+            document.getElementById('input-box').disabled = true;
+            document.getElementById('msg').textContent = txt;
+            document.getElementById('msg').style.color = correct ? "var(--success)" : "var(--error)";
+            document.getElementById('action-btn').textContent = "Next Name";
+            document.getElementById('action-btn').classList.add('btn-next');
+            save();
         }
 
-        function finishStep() {
-            isReadyForNext = true;
-            input.disabled = true;
-            btn.textContent = "Next Name";
-            btn.className = "btn btn-next";
+        function save() { localStorage.setItem('bibleStatsV2', JSON.stringify(stats)); }
+
+        function finishGame() {
+            document.getElementById('game-view').classList.add('hidden');
+            document.getElementById('end-view').classList.remove('hidden');
+            document.getElementById('final-stats').innerHTML = `Final Score: ${score} / 10<br>Session High Streak: ${currentStreak}`;
         }
 
-        function showEnd() {
-            document.getElementById('game-view').style.display = "none";
-            document.getElementById('end-view').style.display = "block";
-            document.getElementById('final-score').textContent = `You scored ${score} out of ${names.length}`;
+        function showDash() {
+            document.getElementById('end-view').classList.add('hidden');
+            document.getElementById('dash-view').classList.remove('hidden');
+            updateDashUI();
         }
 
-        function resetGame() {
-            current = 0; score = 0;
-            document.getElementById('score').textContent = "0";
-            document.getElementById('game-view').style.display = "block";
-            document.getElementById('end-view').style.display = "none";
-            initGame();
-        }
+        document.getElementById('action-btn').addEventListener('click', handleBtn);
+        document.getElementById('input-box').addEventListener('keypress', e => { if(e.key==='Enter') handleBtn(); });
 
-        btn.addEventListener('click', () => isReadyForNext ? (current++, load()) : check());
-        input.addEventListener('keypress', (e) => { if(e.key === 'Enter') isReadyForNext ? (current++, load()) : check(); });
-
-        initGame();
+        updateDashUI();
     </script>
 </body>
 </html>

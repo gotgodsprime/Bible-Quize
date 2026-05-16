@@ -244,7 +244,7 @@
 
             <div id="secret-notice" style="text-align: center; font-size: 0.75rem; font-weight: 800; color: var(--gold); margin-bottom: 10px;" class="hidden">👑 ELITE SECRET MODE UNLOCKED</div>
 
-            <input type="text" id="player-profile-name" placeholder="Your Nickname" value="GOTGOD">
+            <input type="text" id="player-profile-name" placeholder="Your Nickname" value="Believer">
 
             <button class="btn" onclick="initiateLocalSoloGame()">Launch Solo Game</button>
             <button class="btn btn-secondary" onclick="enterNetworkLobbyView()">Multi-Device Arena</button>
@@ -497,6 +497,14 @@
             document.getElementById('dash-streak').textContent = savedStore.dailyStreak;
         }
 
+        // FIX: Moved layout counter elements into safe contextual sync space only when active
+        function syncRoundCounterUI() {
+            const counterEl = document.getElementById('game-round-counter');
+            if (counterEl && liveSession.pool.length > 0) {
+                counterEl.textContent = `${liveSession.index + 1}/${liveSession.pool.length}`;
+            }
+        }
+
         function syncLedgerData() {
             const total = savedStore.correct + savedStore.wrong;
             const absolutePct = total === 0 ? 0 : Math.round((savedStore.correct / total) * 100);
@@ -726,7 +734,7 @@
             liveSession.lockTurn = false;
             resetHintUI();
             
-            document.getElementById('game-round-counter').textContent = `${liveSession.index + 1}/${liveSession.pool.length}`;
+            syncRoundCounterUI();
             
             const renderTarget = document.getElementById('puzzle-render-target');
             renderTarget.textContent = liveSession.pool[liveSession.index].display;
@@ -757,7 +765,7 @@
                     clearInterval(coreSystemClock);
                     evaluateSubmissionData(true);
                 }
-                bar.style.transform = `scaleX(${liveSession.timeLeft / 100})`;
+                if (bar) bar.style.transform = `scaleX(${liveSession.timeLeft / 100})`;
             }, 100);
         }
 
@@ -883,6 +891,8 @@
         }
 
         document.getElementById('game-input').addEventListener('keypress', e => { if(e.key === 'Enter') submitGuessedAnswer(); });
+        
+        // Safe context entry setup execution
         syncDashboardData();
     </script>
 </body>

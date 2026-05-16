@@ -386,17 +386,13 @@
         let finishedPlayersTracking = new Set(); 
 
         // 💾 SYSTEM ENGINE LOCAL PERSISTENCE RECORD
-        let savedStore = { games: 0, correct: 0, wrong: 0, topStreak: 0, dailyStreak: 0, timestamp: null };
-        try {
-            let localData = localStorage.getItem('scramble_System_Data');
-            if (localData) savedStore = JSON.parse(localData);
-        } catch(e) { console.log("Failed to load persistence layer local storage."); }
+        let savedStore = JSON.parse(localStorage.getItem('scramble_System_Data')) || {
+            games: 0, correct: 0, wrong: 0, topStreak: 0, dailyStreak: 0, timestamp: null
+        };
 
         // 🎬 LIFECYCLE RUNTIME START LOADER
         window.onload = () => {
             initBackgroundParticles();
-            syncDashboardData(); // Run data mapping safely inside the lifecycle timeline loop
-            
             setTimeout(() => {
                 const introScreen = document.getElementById('intro-screen');
                 if (introScreen) introScreen.style.transform = 'translateY(-100%)';
@@ -538,9 +534,7 @@
                 const elapsedDays = Math.ceil(Math.abs(now - lastDate) / (1000 * 60 * 60 * 24));
                 if (elapsedDays > 1) savedStore.dailyStreak = 0;
             }
-            try {
-                localStorage.setItem('scramble_System_Data', JSON.stringify(savedStore));
-            } catch(e) {}
+            localStorage.setItem('scramble_System_Data', JSON.stringify(savedStore));
         }
 
         // 💡 CLUE HINT MECHANICS ENGINE
@@ -624,7 +618,7 @@
                 
                 savedStore.games++;
                 savedStore.timestamp = new Date().getTime();
-                try { localStorage.setItem('scramble_System_Data', JSON.stringify(savedStore)); } catch(e){}
+                localStorage.setItem('scramble_System_Data', JSON.stringify(savedStore));
 
                 launchCommonGameplaySequence();
             } catch (err) {
@@ -647,7 +641,7 @@
             if (promptId === null) return;
             let targetedId = promptId.trim().toUpperCase();
 
-            if(finishedPlayersTracking) finishedPlayersTracking.clear();
+            finishedPlayersTracking.clear();
 
             if (targetedId === "") {
                 myProfile.isHost = true;
@@ -673,4 +667,358 @@
                 peerInstance = new Peer();
 
                 peerInstance.on('open', () => {
-                    const
+                    const conn = peerInstance.connect(targetedId);
+                    networkConnections.push(conn);
+                    setupNetworkDataChannels(conn);
+                    
+                    document.getElementById('lobby-room-display').textContent = targetedId;
+                    document.getElementById('lobby-status-text').textContent = "Connecting to Host device...";
+                    document.getElementById('client-wait-msg').classList.remove('hidden');
+                    document.getElementById('host-settings-panel').classList.add('hidden');
+                    switchActiveView('view-lobby');
+                });
+            }
+        }
+
+        function setupNetworkDataChannels(conn) {
+            conn.on('open', () => {
+                if(!myProfile.isHost) conn.send({ type: 'HANDSHAKE', name: myProfile.name });
+            });
+
+            conn.on('data', (data) => {
+                // 📡 HOST ROUTING DECK
+                if (myProfile.isHost) {
+                    if (data.type === 'HANDSHAKE') {
+                        peerScoresCache[data.name] = 0;
+                        updateLobbyListUI();
+                        broadcastPayload({ type: 'LOBBY_UPDATE', list: Object.keys(peerScoresCache) });
+                    }
+                    if (data.type === 'SCORE_UPDATE') {
+                        peerScoresCache[data.name] = data.score;
+                        broadcastPayload({ type: 'SCORE_UPDATE', name: data.name, score: data.score });
+                        if(!document.getElementById('view-end').classList.contains('hidden')) updateFinalLeaderboardUI();
+                    }
+                    if (data.type === 'FINAL_SCORE_UPDATE') {
+                        peerScoresCache[data.name] = data.score;
+                        finishedPlayersTracking.add(data.name);
+                        broadcastPayload({ type: 'FINAL_SCORE_UPDATE', name: data.name, score: data.score });
+                        if(!document.getElementById('view-end').classList.contains('hidden')) updateFinalLeaderboardUI();
+                        checkArenaCompletion();
+                    }
+                } 
+                // 📱 CLIENT RECEIVING DECK
+                else {
+                    if (data.type === 'LOBBY_UPDATE') {
+                        updateLobbyListUI(data.list);
+                        data.list.forEach(name => { if(!(name in peerScoresCache)) peerScoresCache[name] = 0; });
+                    }
+                    if (data.type === 'START_GAME') {
+                        liveSession.pool = data.pool;
+                        liveSession.gameMode = data.mode;
+                        finishedPlayersTracking.clear();
+                        launchCommonGameplaySequence();
+                    }
+                    if (data.type === 'SCORE_UPDATE') {
+                        peerScoresCache[data.name] = data.score;
+                        if(!document.getElementById('view-end').classList.contains('hidden')) updateFinalLeaderboardUI();
+                    }
+                    if (data.type === 'FINAL_SCORE_UPDATE') {
+                        peerScoresCache[data.name] = data.score;
+                        finishedPlayersTracking.add(data.name);
+                        if(!document.getElementById('view-end').classList.contains('hidden')) updateFinalLeaderboardUI();
+                        checkArenaCompletion();
+                    }
+                }
+            });
+        }
+
+        function broadcastPayload(payload) {
+            networkConnections.forEach(conn => { if(conn.open) conn.send(payload); });
+        }
+
+        function updateLobbyListUI(suppliedList) {
+            const container = document.getElementById('lobby-players-list');
+            if (!container) return;
+            const targetList = suppliedList || Object.keys(peerScoresCache);
+            container.innerHTML = targetList.map(name => `<div style="padding:6px 0; font-weight:700">👤 ${name}</div>`).join('');
+        }
+
+        // 📡 HOST START BROADCASTER
+        function broadcastStartSignal() {
+            let structuredPool = [];
+            if (activePrefs.gmode === 'scramble') {
+                let sourceWords = SCRAMBLE_DICTIONARY[activePrefs.diff] || SCRAMBLE_DICTIONARY.easy;
+                structuredPool = sourceWords.map(w => {
+                    let actualWord = w.word || (w.solutions && w.solutions) || "";
+                    let acceptableAnswers = w.solutions ? w.solutions.map(s => s.toLowerCase()) : [actualWord.toLowerCase()];
+                    return { 
+                        display: calculateScramble(actualWord), 
+                        solutions: acceptableAnswers,
+                        hint: w.hint || "No clues available."
+                    };
+                }).sort(() => Math.random() - 0.5).slice(0, 5);
+            } else {
+                structuredPool = EMOJI_DICTIONARY.map(item => ({ 
+                    display: item.puzzle, 
+                    solutions: item.answers,
+                    hint: item.hint 
+                })).sort(() => Math.random() - 0.5).slice(0, 6);
+            }
+            
+            finishedPlayersTracking.clear();
+            broadcastPayload({ type: 'START_GAME', pool: structuredPool, mode: activePrefs.gmode });
+            liveSession.pool = structuredPool;
+            liveSession.gameMode = activePrefs.gmode;
+            launchCommonGameplaySequence();
+        }
+
+        // 🎮 UNIVERSAL ENGINE RUNTIME INTERFACE LOOP
+        function launchCommonGameplaySequence() {
+            liveSession.index = 0; liveSession.score = 0; liveSession.speedBonus = 0;
+            liveSession.streak = 0; liveSession.lives = 3;
+            switchActiveView('view-game');
+            syncHUD();
+            displayCurrentRound();
+        }
+
+        function syncHUD() {
+            const scoreEl = document.getElementById('game-score');
+            const livesEl = document.getElementById('game-lives');
+            const pill = document.getElementById('game-streak-pill');
+            const streakValEl = document.getElementById('game-streak-val');
+
+            if (scoreEl) scoreEl.textContent = liveSession.score;
+            if (livesEl) livesEl.textContent = myProfile.isNetworkMode ? `⏱️ Arena Match` : "❤️".repeat(liveSession.lives);
+            
+            if (pill && streakValEl) {
+                if (liveSession.streak > 0) {
+                    pill.classList.remove('hidden');
+                    streakValEl.textContent = liveSession.streak;
+                } else {
+                    pill.classList.add('hidden');
+                }
+            }
+        }
+
+        function displayCurrentRound() {
+            if(!liveSession.pool || liveSession.index >= liveSession.pool.length || (!myProfile.isNetworkMode && liveSession.lives <= 0)) {
+                return compileFinalReport();
+            }
+            liveSession.lockTurn = false;
+            resetHintUI();
+            
+            syncRoundCounterUI();
+            
+            const renderTarget = document.getElementById('puzzle-render-target');
+            if (renderTarget) {
+                renderTarget.textContent = liveSession.pool[liveSession.index].display;
+                if (liveSession.gameMode === 'emoji') renderTarget.classList.add('emoji-mode-text');
+                else renderTarget.classList.remove('emoji-mode-text');
+            }
+
+            const txtIn = document.getElementById('game-input');
+            if (txtIn) { txtIn.value = ""; txtIn.disabled = false; txtIn.focus(); }
+            
+            const actionBtn = document.getElementById('game-action-btn');
+            const feedbackEl = document.getElementById('game-feedback');
+            if (actionBtn) { actionBtn.textContent = "Validate"; actionBtn.className = "btn"; }
+            if (feedbackEl) feedbackEl.textContent = "";
+            
+            executeChronographTimer();
+        }
+
+        function executeChronographTimer() {
+            clearInterval(coreSystemClock);
+            liveSession.timeLeft = 100;
+            const bar = document.getElementById('game-timer');
+            let reductionRate = liveSession.gameMode === 'emoji' ? 0.9 : 1.6;
+
+            coreSystemClock = setInterval(() => {
+                liveSession.timeLeft -= reductionRate;
+                if(liveSession.timeLeft <= 0) {
+                    liveSession.timeLeft = 0;
+                    clearInterval(coreSystemClock);
+                    evaluateSubmissionData(true);
+                }
+                if (bar) bar.style.transform = `scaleX(${liveSession.timeLeft / 100})`;
+            }, 100);
+        }
+
+        function submitGuessedAnswer() {
+            if (liveSession.lockTurn) {
+                liveSession.index++;
+                displayCurrentRound();
+                return;
+            }
+            evaluateSubmissionData(false);
+        }
+
+        function evaluateSubmissionData(timeout) {
+            clearInterval(coreSystemClock);
+            liveSession.lockTurn = true;
+            
+            const inputField = document.getElementById('game-input');
+            let baseGuess = inputField ? inputField.value.trim().toLowerCase() : "";
+            let roundInstanceData = liveSession.pool[liveSession.index];
+
+            let isCorrect = !timeout && roundInstanceData.solutions.includes(baseGuess);
+            const feedbackEl = document.getElementById('game-feedback');
+
+            if (isCorrect) {
+                liveSession.score += 10;
+                savedStore.correct++;
+                liveSession.streak++;
+                if(liveSession.streak > savedStore.topStreak) savedStore.topStreak = liveSession.streak;
+
+                let pointsBonus = 0;
+                if(liveSession.timeLeft > 50) {
+                    pointsBonus = Math.round((liveSession.timeLeft - 50) / 8);
+                    liveSession.speedBonus += pointsBonus;
+                    liveSession.score += pointsBonus;
+                }
+
+                invokeHapticFeedback(40); playAudioTone('right');
+                if (feedbackEl) feedbackEl.innerHTML = `<span style="color:var(--success)">✨ Confirmed! Perfect Calculation!</span>`;
+            } else {
+                liveSession.lives--; liveSession.streak = 0; savedStore.wrong++;
+
+                invokeHapticFeedback(); playAudioTone('wrong');
+                
+                const shell = document.getElementById('app-shell');
+                if (shell) {
+                    shell.classList.add('shake'); 
+                    setTimeout(() => shell.classList.remove('shake'), 300);
+                }
+
+                let primaryAnswer = roundInstanceData.solutions.toUpperCase();
+                if (feedbackEl) feedbackEl.innerHTML = `<span style="color:var(--error)">❌ Deficit! Solution: ${primaryAnswer}</span>`;
+            }
+
+            if (inputField) inputField.disabled = true;
+            syncHUD();
+
+            const actionBtn = document.getElementById('game-action-btn');
+            if (actionBtn) {
+                actionBtn.textContent = "Proceed";
+                actionBtn.className = "btn btn-next";
+            }
+
+            localStorage.setItem('scramble_System_Data', JSON.stringify(savedStore));
+            verifyScoreUnlocks();
+
+            if (myProfile.isNetworkMode) {
+                peerScoresCache[myProfile.name] = liveSession.score;
+                if (myProfile.isHost) {
+                    broadcastPayload({ type: 'SCORE_UPDATE', name: myProfile.name, score: liveSession.score });
+                } else {
+                    networkConnections.send({ type: 'SCORE_UPDATE', name: myProfile.name, score: liveSession.score });
+                }
+            }
+        }
+
+        function verifyScoreUnlocks() {
+            if(liveSession.score >= 100 && !isSecretUnlocked) {
+                isSecretUnlocked = true;
+                localStorage.setItem('scramble_secret', 'true');
+                enableSecretGraphics();
+            }
+        }
+
+        function enableSecretGraphics() {
+            const shell = document.getElementById('app-shell');
+            const notice = document.getElementById('secret-notice');
+            if(shell) shell.classList.add('secret-active');
+            if(notice) notice.classList.remove('hidden');
+        }
+
+        function compileFinalReport() {
+            clearInterval(coreSystemClock);
+            
+            if(!myProfile.isNetworkMode && liveSession.score > 20) {
+                const lastDayStr = savedStore.timestamp ? new Date(savedStore.timestamp).toDateString() : null;
+                if(lastDayStr !== new Date().toDateString()) savedStore.dailyStreak++;
+                localStorage.setItem('scramble_System_Data', JSON.stringify(savedStore));
+            }
+
+            const endTitleEl = document.getElementById('end-title');
+            if (endTitleEl) {
+                endTitleEl.textContent = (!myProfile.isNetworkMode && liveSession.lives <= 0) ? "Session Defeat" : "Arena Concluded";
+            }
+
+            if (myProfile.isNetworkMode) {
+                finishedPlayersTracking.add(myProfile.name);
+                peerScoresCache[myProfile.name] = liveSession.score;
+                
+                if (myProfile.isHost) {
+                    broadcastPayload({ type: 'FINAL_SCORE_UPDATE', name: myProfile.name, score: liveSession.score });
+                } else {
+                    networkConnections.send({ type: 'FINAL_SCORE_UPDATE', name: myProfile.name, score: liveSession.score });
+                }
+            }
+            
+            updateFinalLeaderboardUI();
+            switchActiveView('view-end');
+            playAudioTone('victory');
+            
+            if (myProfile.isNetworkMode) {
+                checkArenaCompletion();
+            }
+        }
+
+        function checkArenaCompletion() {
+            const totalPlayersCount = Object.keys(peerScoresCache).length;
+            const subtitleEl = document.getElementById('end-subtitle-waiting');
+            
+            if (finishedPlayersTracking.size >= totalPlayersCount) {
+                if (subtitleEl) subtitleEl.textContent = "🏆 Final Arena Standings!";
+            } else {
+                if (subtitleEl) subtitleEl.textContent = `Awaiting opponents... (${finishedPlayersTracking.size}/${totalPlayersCount} done)`;
+            }
+        }
+
+        function updateFinalLeaderboardUI() {
+            const container = document.getElementById('final-leaderboard-list');
+            if(!container) return;
+
+            if (myProfile.isNetworkMode) {
+                const sorted = Object.entries(peerScoresCache).sort((a,b) => b - a);
+                container.innerHTML = sorted.map(([name, val], idx) => {
+                    let isDone = finishedPlayersTracking.has(name);
+                    return `
+                        <div class="leaderboard-item" style="opacity: ${isDone ? '1' : '0.5'}">
+                            <span>${idx === 0 && isDone ? '👑' : '👤'} ${name} ${isDone ? '' : '(Playing...)'}</span>
+                            <span style="color:var(--success)">${val} pts</span>
+                        </div>
+                    `;
+                }).join('');
+            } else {
+                container.innerHTML = `
+                    <div class="leaderboard-item"><span>👤 Base Score</span><span style="color:var(--primary)">${liveSession.score}</span></div>
+                    <div class="leaderboard-item"><span>⚡ Speed Bonus</span><span style="color:var(--success)">+${liveSession.speedBonus}</span></div>
+                `;
+            }
+        }
+
+        function disconnectNetworkSession() {
+            if(peerInstance) peerInstance.destroy();
+            returnToDashboardHome();
+        }
+
+        function returnToDashboardHome() {
+            myProfile.isNetworkMode = false; networkConnections = []; peerScoresCache = {};
+            finishedPlayersTracking.clear();
+            const subtitleEl = document.getElementById('end-subtitle-waiting');
+            if (subtitleEl) subtitleEl.textContent = "Dynamic performance standings";
+            switchActiveView('view-dash');
+        }
+
+        const gameInputEl = document.getElementById('game-input');
+        if (gameInputEl) {
+            gameInputEl.addEventListener('keypress', e => { if(e.key === 'Enter') submitGuessedAnswer(); });
+        }
+        
+        // Final secure load sequence trigger
+        syncDashboardData();
+    </script>
+</body>
+</html>

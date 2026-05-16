@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Bible Blitz Ultra: Grand Master Edition</title>
-    <!-- Decentralized signaling network loop layer via PeerJS -->
     <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
     <style>
         :root {
@@ -226,17 +225,14 @@
     <div class="bg-mesh"></div>
     <canvas id="bg-canvas"></canvas>
 
-    <!-- 🎬 Intro Cinematic Layer -->
     <div id="intro-screen">
         <div class="logo-container">
             <div class="logo-text">BIBLE BLITZ</div>
         </div>
     </div>
 
-    <!-- 📱 Master App Content -->
     <div class="app-shell" id="app-shell">
         
-        <!-- 🏠 VIEW: PERSISTENCE METRICS DASHBOARD -->
         <div id="view-dash" class="view">
             <h1>Bible Blitz Ultra</h1>
             <p class="subtitle">Premium Scriptural Enigma Game</p>
@@ -255,7 +251,6 @@
             <button class="btn btn-secondary" onclick="switchActiveView('view-stats')">Analytics Ledger</button>
         </div>
 
-        <!-- ⏳ VIEW: MULTIPLAYER LOBBY SUITE -->
         <div id="view-lobby" class="view hidden">
             <h1>Match Lobby</h1>
             <p class="subtitle" id="lobby-status-text">Creating arena instance...</p>
@@ -265,7 +260,6 @@
             <div class="section-label">Connected Players</div>
             <div class="lobby-list" id="lobby-players-list">Awaiting connections...</div>
 
-            <!-- Host Dynamic Constraints Selector Panel -->
             <div id="host-settings-panel" class="hidden">
                 <div class="section-label">Engine Variant Mode</div>
                 <div class="grid-select cat-grid" style="margin-bottom: 15px;">
@@ -289,7 +283,6 @@
             <button class="btn btn-secondary" onclick="disconnectNetworkSession()">Disconnect</button>
         </div>
 
-        <!-- 🎮 VIEW: LIVE GAMEPLAY HUB -->
         <div id="view-game" class="view hidden">
             <div class="hud">
                 <div>SCORE: <span id="game-score">0</span></div>
@@ -300,6 +293,8 @@
             <div class="timer-track">
                 <div class="timer-bar" id="game-timer"></div>
             </div>
+
+            <div style="text-align: center; font-size: 0.75rem; font-weight: 800; color: var(--text-sub); text-transform: uppercase; letter-spacing: 1px; margin-bottom: -15px;">Puzzle <span id="game-round-counter">0/0</span></div>
 
             <div class="puzzle-display" id="puzzle-render-target">----</div>
             
@@ -312,7 +307,6 @@
             <div class="feedback" id="game-feedback"></div>
         </div>
 
-        <!-- 🏁 VIEW: SUMMARY REPORT / ARENA TOURNAMENT SCOREBOARD -->
         <div id="view-end" class="view hidden">
             <h1 id="end-title">Session Wrap</h1>
             <p class="subtitle">Dynamic performance standings</p>
@@ -322,7 +316,6 @@
             <button class="btn" onclick="returnToDashboardHome()">Return to Main View</button>
         </div>
 
-        <!-- 📊 VIEW: GENERAL SYSTEM STATISTICAL LEDGER -->
         <div id="view-stats" class="view hidden">
             <h1>Performance Ledger</h1>
             <p class="subtitle">Permanent Local Metrics</p>
@@ -345,23 +338,23 @@
         // 🧩 ENGINES SCRIPTURAL VOCABULARY DATA MATRIX
         const SCRAMBLE_DICTIONARY = {
             easy: [
-                { display: "", solutions: ["peter"], hint: "A fisherman who became a rock-solid pillar of the early church." },
-                { display: "", solutions: ["mary"], hint: "The favored mother chosen to bring Christ into the earthly realm." },
-                { display: "", solutions: ["ruth"], hint: "A loyal Moabite widow who refused to leave her mother-in-law." },
-                { display: "", solutions: ["noah"], hint: "A righteous man who built an ark to preserve life through the flood." },
-                { display: "", solutions: ["david"], hint: "A young shepherd who defeated a giant and became Israel's king." }
+                { solutions: ["peter"], hint: "A fisherman who became a rock-solid pillar of the early church." },
+                { solutions: ["mary"], hint: "The favored mother chosen to bring Christ into the earthly realm." },
+                { solutions: ["ruth"], hint: "A loyal Moabite widow who refused to leave her mother-in-law." },
+                { solutions: ["noah"], hint: "A righteous man who built an ark to preserve life through the flood." },
+                { solutions: ["david"], hint: "A young shepherd who defeated a giant and became Israel's king." }
             ],
             medium: [
-                { display: "", solutions: ["elizabeth"], hint: "John the Baptist's mother, who was filled with joy during her pregnancy." },
-                { display: "", solutions: ["abraham"], hint: "Called out of Ur to become the father of many nations." },
-                { display: "", solutions: ["elijah"], hint: "A bold prophet who confronted Ahab and rode a whirlwind chariot into heaven." },
-                { display: "", solutions: ["lazarus"], hint: "A beloved friend of Jesus who walked out of his tomb after four days." }
+                { solutions: ["elizabeth"], hint: "John the Baptist's mother, who was filled with joy during her pregnancy." },
+                { solutions: ["abraham"], hint: "Called out of Ur to become the father of many nations." },
+                { solutions: ["elijah"], hint: "A bold prophet who confronted Ahab and rode a whirlwind chariot into heaven." },
+                { solutions: ["lazarus"], hint: "A beloved friend of Jesus who walked out of his tomb after four days." }
             ],
             hard: [
-                { display: "", solutions: ["nebuchadnezzar"], hint: "The proud Babylonian emperor who built a colossal gold statue." },
-                { display: "", solutions: ["melchizedek"], hint: "A mysterious ancient king of Salem and priest of the Most High God." },
-                { display: "", solutions: ["methuselah"], hint: "The longest-lived patriarch recorded in biblical genealogy." },
-                { display: "", solutions: ["mephibosheth"], hint: "Jonathan's lame son who was welcomed to dine at King David's table." }
+                { solutions: ["nebuchadnezzar"], hint: "The proud Babylonian emperor who built a colossal gold statue." },
+                { solutions: ["melchizedek"], hint: "A mysterious ancient king of Salem and priest of the Most High God." },
+                { solutions: ["methuselah"], hint: "The longest-lived patriarch recorded in biblical genealogy." },
+                { solutions: ["mephibosheth"], hint: "Jonathan's lame son who was welcomed to dine at King David's table." }
             ]
         };
 
@@ -531,7 +524,7 @@
                 
                 let currentItem = liveSession.pool[liveSession.index];
                 document.getElementById('hint-text').textContent = currentItem.hint || 
-                    `Clue: The solution target is exactly ${currentItem.solutions[0].length} characters long.`;
+                    `Clue: The solution target is exactly ${currentItem.solutions.length} characters long.`;
                     
                 document.getElementById('hint-btn').disabled = true;
                 document.getElementById('hint-btn').style.opacity = "0.4";
@@ -572,17 +565,21 @@
             });
         }
 
-        // 🕹️ SOLO GAMEPLAY INIT ENGINE
+        // 🕹️ SOLO GAMEPLAY INIT ENGINE (FIXED MAP MIGRATION TARGETS)
         function initiateLocalSoloGame() {
             myProfile.name = document.getElementById('player-profile-name').value.trim() || "Champion";
             myProfile.isNetworkMode = false; myProfile.isHost = false;
 
             let sourceWords = SCRAMBLE_DICTIONARY[activePrefs.diff];
-            let targetPool = sourceWords.map(w => ({ 
-                display: calculateScramble(w.solutions[0]), 
-                solutions: [w.solutions[0].toLowerCase()],
-                hint: w.hint 
-            })).sort(() => Math.random() - 0.5).slice(0, 5);
+            
+            let targetPool = sourceWords.map(w => {
+                let actualWord = w.solutions;
+                return { 
+                    display: calculateScramble(actualWord), 
+                    solutions: [actualWord.toLowerCase()],
+                    hint: w.hint 
+                };
+            }).sort(() => Math.random() - 0.5).slice(0, 5);
             
             liveSession.pool = targetPool;
             liveSession.gameMode = 'scramble';
@@ -674,15 +671,19 @@
             container.innerHTML = targetList.map(name => `<div style="padding:6px 0; font-weight:700">👤 ${name}</div>`).join('');
         }
 
+        // 📡 HOST START BROADCASTER (FIXED MULTIPLAYER MAP OBJECTS)
         function broadcastStartSignal() {
             let structuredPool = [];
             if (activePrefs.gmode === 'scramble') {
                 let sourceWords = SCRAMBLE_DICTIONARY[activePrefs.diff];
-                structuredPool = sourceWords.map(w => ({ 
-                    display: calculateScramble(w.solutions[0]), 
-                    solutions: [w.solutions[0].toLowerCase()],
-                    hint: w.hint 
-                })).sort(() => Math.random() - 0.5).slice(0, 5);
+                structuredPool = sourceWords.map(w => {
+                    let actualWord = w.solutions;
+                    return { 
+                        display: calculateScramble(actualWord), 
+                        solutions: [actualWord.toLowerCase()],
+                        hint: w.hint 
+                    };
+                }).sort(() => Math.random() - 0.5).slice(0, 5);
             } else {
                 structuredPool = EMOJI_DICTIONARY.map(item => ({ 
                     display: item.puzzle, 
@@ -708,7 +709,7 @@
 
         function syncHUD() {
             document.getElementById('game-score').textContent = liveSession.score;
-            document.getElementById('game-lives').textContent = myProfile.isNetworkMode ? `⏱️ Match Arena` : "❤️".repeat(liveSession.lives);
+            document.getElementById('game-lives').textContent = myProfile.isNetworkMode ? `⏱️ Arena Match` : "❤️".repeat(liveSession.lives);
             const pill = document.getElementById('game-streak-pill');
             if (liveSession.streak > 0) {
                 pill.classList.remove('hidden');
@@ -780,7 +781,7 @@
             let isCorrect = !timeout && roundInstanceData.solutions.includes(baseGuess);
 
             if (isCorrect) {
-                liveSession.score += 5;
+                liveSession.score += 10;
                 savedStore.correct++;
                 liveSession.streak++;
                 if(liveSession.streak > savedStore.topStreak) savedStore.topStreak = liveSession.streak;
@@ -797,12 +798,12 @@
             } else {
                 liveSession.lives--; liveSession.streak = 0; savedStore.wrong++;
 
-                invokeHapticFeedback([90, 40, 90]); playAudioTone('wrong');
+                invokeHapticFeedback(); playAudioTone('wrong');
                 
                 const shell = document.getElementById('app-shell');
                 shell.classList.add('shake'); setTimeout(() => shell.classList.remove('shake'), 300);
 
-                let primaryAnswer = roundInstanceData.solutions[0].toUpperCase();
+                let primaryAnswer = roundInstanceData.solutions.toUpperCase();
                 document.getElementById('game-feedback').innerHTML = `<span style="color:var(--error)">❌ Deficit! Solution: ${primaryAnswer}</span>`;
             }
 
@@ -856,7 +857,7 @@
             if(!container) return;
 
             if (myProfile.isNetworkMode) {
-                const sorted = Object.entries(peerScoresCache).sort((a,b) => b[1] - a[1]);
+                const sorted = Object.entries(peerScoresCache).sort((a,b) => b - a);
                 container.innerHTML = sorted.map(([name, val], idx) => `
                     <div class="leaderboard-item">
                         <span>${idx === 0 ? '👑' : '👤'} ${name}</span>

@@ -493,14 +493,17 @@
         // 📊 DATA CACHE SYNC CONTROLLERS
         function syncDashboardData() {
             evaluateDailyStreakTracking();
-            document.getElementById('dash-games').textContent = savedStore.games;
-            document.getElementById('dash-streak').textContent = savedStore.dailyStreak;
+            
+            const gamesEl = document.getElementById('dash-games');
+            const streakEl = document.getElementById('dash-streak');
+            
+            if (gamesEl) gamesEl.textContent = savedStore.games;
+            if (streakEl) streakEl.textContent = savedStore.dailyStreak;
         }
 
-        // FIX: Moved layout counter elements into safe contextual sync space only when active
         function syncRoundCounterUI() {
             const counterEl = document.getElementById('game-round-counter');
-            if (counterEl && liveSession.pool.length > 0) {
+            if (counterEl && liveSession.pool && liveSession.pool.length > 0) {
                 counterEl.textContent = `${liveSession.index + 1}/${liveSession.pool.length}`;
             }
         }
@@ -508,10 +511,16 @@
         function syncLedgerData() {
             const total = savedStore.correct + savedStore.wrong;
             const absolutePct = total === 0 ? 0 : Math.round((savedStore.correct / total) * 100);
-            document.getElementById('stat-accuracy').textContent = absolutePct + "%";
-            document.getElementById('stat-best-streak').textContent = savedStore.topStreak;
-            document.getElementById('stat-correct').textContent = savedStore.correct;
-            document.getElementById('stat-wrong').textContent = savedStore.wrong;
+            
+            const accuracyEl = document.getElementById('stat-accuracy');
+            const bestEl = document.getElementById('stat-best-streak');
+            const correctEl = document.getElementById('stat-correct');
+            const wrongEl = document.getElementById('stat-wrong');
+            
+            if (accuracyEl) accuracyEl.textContent = absolutePct + "%";
+            if (bestEl) bestEl.textContent = savedStore.topStreak;
+            if (correctEl) correctEl.textContent = savedStore.correct;
+            if (wrongEl) wrongEl.textContent = savedStore.wrong;
         }
 
         function evaluateDailyStreakTracking() {
@@ -534,18 +543,24 @@
                 document.getElementById('hint-text').textContent = currentItem.hint || 
                     `Clue: The solution target is exactly ${currentItem.solutions.length} characters long.`;
                     
-                document.getElementById('hint-btn').disabled = true;
-                document.getElementById('hint-btn').style.opacity = "0.4";
+                const hintBtn = document.getElementById('hint-btn');
+                if (hintBtn) {
+                    hintBtn.disabled = true;
+                    hintBtn.style.opacity = "0.4";
+                }
             } else if (liveSession.score < 5) {
                 document.getElementById('hint-text').textContent = "⚠️ Not enough points! (Requires 5 pts)";
             }
         }
 
         function resetHintUI() {
-            document.getElementById('hint-text').textContent = "";
+            const hintTextEl = document.getElementById('hint-text');
             const hintBtn = document.getElementById('hint-btn');
-            hintBtn.disabled = false;
-            hintBtn.style.opacity = "1";
+            if (hintTextEl) hintTextEl.textContent = "";
+            if (hintBtn) {
+                hintBtn.disabled = false;
+                hintBtn.style.opacity = "1";
+            }
         }
 
         // 🏆 ACHIEVEMENT BADGE VAULT ENGINE
@@ -575,7 +590,8 @@
 
         // 🕹️ SOLO GAMEPLAY INIT ENGINE
         function initiateLocalSoloGame() {
-            myProfile.name = document.getElementById('player-profile-name').value.trim() || "Champion";
+            const nameIn = document.getElementById('player-profile-name');
+            myProfile.name = (nameIn && nameIn.value.trim()) || "Champion";
             myProfile.isNetworkMode = false; myProfile.isHost = false;
 
             let sourceWords = SCRAMBLE_DICTIONARY[activePrefs.diff];
@@ -599,9 +615,15 @@
             launchCommonGameplaySequence();
         }
 
-        // 📡 MULTI-DEVICE ARENA COUPLING NETWORKS
+        // 📡 MULTI-DEVICE ARENA COUPLING NETWORKS (Insulated safely from missing library instances)
         function enterNetworkLobbyView() {
-            myProfile.name = document.getElementById('player-profile-name').value.trim() || "Seeker";
+            if (typeof Peer === 'undefined') {
+                alert("Multiplayer network components failed to load from CDNs. Please verify your internet connection. Solo Game mode remains fully playable offline!");
+                return;
+            }
+
+            const nameIn = document.getElementById('player-profile-name');
+            myProfile.name = (nameIn && nameIn.value.trim()) || "Seeker";
             myProfile.isNetworkMode = true;
             
             const promptId = prompt("To join an active match, paste the Host Room ID. To generate a brand new host arena instead, leave this empty:");
@@ -675,6 +697,7 @@
 
         function updateLobbyListUI(suppliedList) {
             const container = document.getElementById('lobby-players-list');
+            if (!container) return;
             const targetList = suppliedList || Object.keys(peerScoresCache);
             container.innerHTML = targetList.map(name => `<div style="padding:6px 0; font-weight:700">👤 ${name}</div>`).join('');
         }
@@ -716,19 +739,26 @@
         }
 
         function syncHUD() {
-            document.getElementById('game-score').textContent = liveSession.score;
-            document.getElementById('game-lives').textContent = myProfile.isNetworkMode ? `⏱️ Arena Match` : "❤️".repeat(liveSession.lives);
+            const scoreEl = document.getElementById('game-score');
+            const livesEl = document.getElementById('game-lives');
             const pill = document.getElementById('game-streak-pill');
-            if (liveSession.streak > 0) {
-                pill.classList.remove('hidden');
-                document.getElementById('game-streak-val').textContent = liveSession.streak;
-            } else {
-                pill.classList.add('hidden');
+            const streakValEl = document.getElementById('game-streak-val');
+
+            if (scoreEl) scoreEl.textContent = liveSession.score;
+            if (livesEl) livesEl.textContent = myProfile.isNetworkMode ? `⏱️ Arena Match` : "❤️".repeat(liveSession.lives);
+            
+            if (pill && streakValEl) {
+                if (liveSession.streak > 0) {
+                    pill.classList.remove('hidden');
+                    streakValEl.textContent = liveSession.streak;
+                } else {
+                    pill.classList.add('hidden');
+                }
             }
         }
 
         function displayCurrentRound() {
-            if(liveSession.index >= liveSession.pool.length || (!myProfile.isNetworkMode && liveSession.lives <= 0)) {
+            if(!liveSession.pool || liveSession.index >= liveSession.pool.length || (!myProfile.isNetworkMode && liveSession.lives <= 0)) {
                 return compileFinalReport();
             }
             liveSession.lockTurn = false;
@@ -737,17 +767,19 @@
             syncRoundCounterUI();
             
             const renderTarget = document.getElementById('puzzle-render-target');
-            renderTarget.textContent = liveSession.pool[liveSession.index].display;
-            
-            if (liveSession.gameMode === 'emoji') renderTarget.classList.add('emoji-mode-text');
-            else renderTarget.classList.remove('emoji-mode-text');
+            if (renderTarget) {
+                renderTarget.textContent = liveSession.pool[liveSession.index].display;
+                if (liveSession.gameMode === 'emoji') renderTarget.classList.add('emoji-mode-text');
+                else renderTarget.classList.remove('emoji-mode-text');
+            }
 
             const txtIn = document.getElementById('game-input');
-            txtIn.value = ""; txtIn.disabled = false; txtIn.focus();
+            if (txtIn) { txtIn.value = ""; txtIn.disabled = false; txtIn.focus(); }
             
-            document.getElementById('game-action-btn').textContent = "Validate";
-            document.getElementById('game-action-btn').className = "btn";
-            document.getElementById('game-feedback').textContent = "";
+            const actionBtn = document.getElementById('game-action-btn');
+            const feedbackEl = document.getElementById('game-feedback');
+            if (actionBtn) { actionBtn.textContent = "Validate"; actionBtn.className = "btn"; }
+            if (feedbackEl) feedbackEl.textContent = "";
             
             executeChronographTimer();
         }
@@ -783,10 +815,11 @@
             liveSession.lockTurn = true;
             
             const inputField = document.getElementById('game-input');
-            let baseGuess = inputField.value.trim().toLowerCase();
+            let baseGuess = inputField ? inputField.value.trim().toLowerCase() : "";
             let roundInstanceData = liveSession.pool[liveSession.index];
 
             let isCorrect = !timeout && roundInstanceData.solutions.includes(baseGuess);
+            const feedbackEl = document.getElementById('game-feedback');
 
             if (isCorrect) {
                 liveSession.score += 10;
@@ -802,24 +835,30 @@
                 }
 
                 invokeHapticFeedback(40); playAudioTone('right');
-                document.getElementById('game-feedback').innerHTML = `<span style="color:var(--success)">✨ Confirmed! Perfect Calculation!</span>`;
+                if (feedbackEl) feedbackEl.innerHTML = `<span style="color:var(--success)">✨ Confirmed! Perfect Calculation!</span>`;
             } else {
                 liveSession.lives--; liveSession.streak = 0; savedStore.wrong++;
 
                 invokeHapticFeedback(); playAudioTone('wrong');
                 
                 const shell = document.getElementById('app-shell');
-                shell.classList.add('shake'); setTimeout(() => shell.classList.remove('shake'), 300);
+                if (shell) {
+                    shell.classList.add('shake'); 
+                    setTimeout(() => shell.classList.remove('shake'), 300);
+                }
 
                 let primaryAnswer = roundInstanceData.solutions.toUpperCase();
-                document.getElementById('game-feedback').innerHTML = `<span style="color:var(--error)">❌ Deficit! Solution: ${primaryAnswer}</span>`;
+                if (feedbackEl) feedbackEl.innerHTML = `<span style="color:var(--error)">❌ Deficit! Solution: ${primaryAnswer}</span>`;
             }
 
-            inputField.disabled = true;
+            if (inputField) inputField.disabled = true;
             syncHUD();
 
-            document.getElementById('game-action-btn').textContent = "Proceed";
-            document.getElementById('game-action-btn').className = "btn btn-next";
+            const actionBtn = document.getElementById('game-action-btn');
+            if (actionBtn) {
+                actionBtn.textContent = "Proceed";
+                actionBtn.className = "btn btn-next";
+            }
 
             localStorage.setItem('scramble_System_Data', JSON.stringify(savedStore));
             verifyScoreUnlocks();
@@ -839,8 +878,9 @@
         }
 
         function enableSecretGraphics() {
-            document.getElementById('app-shell').classList.add('secret-active');
+            const shell = document.getElementById('app-shell');
             const notice = document.getElementById('secret-notice');
+            if(shell) shell.classList.add('secret-active');
             if(notice) notice.classList.remove('hidden');
         }
 
@@ -853,7 +893,10 @@
                 localStorage.setItem('scramble_System_Data', JSON.stringify(savedStore));
             }
 
-            document.getElementById('end-title').textContent = (!myProfile.isNetworkMode && liveSession.lives <= 0) ? "Session Defeat" : "Arena Concluded";
+            const endTitleEl = document.getElementById('end-title');
+            if (endTitleEl) {
+                endTitleEl.textContent = (!myProfile.isNetworkMode && liveSession.lives <= 0) ? "Session Defeat" : "Arena Concluded";
+            }
             
             updateFinalLeaderboardUI();
             switchActiveView('view-end');
@@ -890,9 +933,12 @@
             switchActiveView('view-dash');
         }
 
-        document.getElementById('game-input').addEventListener('keypress', e => { if(e.key === 'Enter') submitGuessedAnswer(); });
+        const gameInputEl = document.getElementById('game-input');
+        if (gameInputEl) {
+            gameInputEl.addEventListener('keypress', e => { if(e.key === 'Enter') submitGuessedAnswer(); });
+        }
         
-        // Safe context entry setup execution
+        // Final secure load sequence trigger
         syncDashboardData();
     </script>
 </body>

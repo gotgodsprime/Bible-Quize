@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Bible Blitz Ultra: Grand Master Solo Edition</title>
+    <title>Bible Blitz Ultra: Grand Master Hybrid Edition</title>
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
     <style>
         :root {
             --primary: #6366f1;
@@ -210,6 +211,9 @@
         .stat-val { font-size: 1.5rem; font-weight: 900; color: var(--primary); display: block; }
         .stat-lbl { font-size: 0.65rem; color: var(--text-sub); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
 
+        /* Networking & Lobby UI Structures */
+        .room-badge { background: rgba(255,255,255,0.05); padding: 14px; border-radius: 16px; text-align: center; font-weight: 700; font-size: 1.1rem; margin-bottom: 15px; border: 1px dashed var(--border); }
+        .lobby-list { background: rgba(0,0,0,0.2); padding: 12px; border-radius: 16px; min-height: 60px; margin-bottom: 15px; font-size: 0.9rem; }
         .leaderboard-item { display: flex; justify-content: space-between; background: var(--surface-accent); padding: 14px 16px; border-radius: 16px; margin-bottom: 8px; border: 1px solid var(--border); font-weight: 700; }
 
         @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-8px); } 75% { transform: translateX(8px); } }
@@ -240,14 +244,15 @@
 
             <div id="secret-notice" style="text-align: center; font-size: 0.75rem; font-weight: 800; color: var(--gold); margin-bottom: 10px;" class="hidden">👑 ELITE SECRET MODE UNLOCKED</div>
 
-            <div class="section-label">Engine Variant Mode</div>
+            <input type="text" id="player-profile-name" placeholder="Your Nickname" value="Believer">
+
+            <div class="section-label">Engine Settings (Solo Mode)</div>
             <div class="grid-select cat-grid" style="margin-bottom: 10px;">
                 <button class="pill-btn active" data-type="gmode" onclick="setPreference('gmode', 'scramble', this)">Scramble Words</button>
                 <button class="pill-btn" data-type="gmode" onclick="setPreference('gmode', 'emoji', this)">Emoji Decoding</button>
             </div>
 
             <div id="scramble-settings">
-                <div class="section-label">Difficulty Category</div>
                 <div class="grid-select" style="margin-bottom: 20px;">
                     <button class="pill-btn active" data-type="diff" onclick="setPreference('diff', 'easy', this)">Easy</button>
                     <button class="pill-btn" data-type="diff" onclick="setPreference('diff', 'medium', this)">Medium</button>
@@ -256,7 +261,40 @@
             </div>
 
             <button class="btn btn-success" onclick="initiateLocalSoloGame()">Launch Solo Game</button>
+            <button class="btn btn-secondary" onclick="enterNetworkLobbyView()">Multi-Device Arena</button>
             <button class="btn btn-secondary" onclick="switchActiveView('view-stats')">Analytics Ledger</button>
+        </div>
+
+        <div id="view-lobby" class="view hidden">
+            <h1>Match Lobby</h1>
+            <p class="subtitle" id="lobby-status-text">Creating arena instance...</p>
+            
+            <div class="room-badge">ROOM ID: <span id="lobby-room-display" style="color:var(--gold)">----</span></div>
+            
+            <div class="section-label">Connected Players</div>
+            <div class="lobby-list" id="lobby-players-list">Awaiting connections...</div>
+
+            <div id="host-settings-panel" class="hidden">
+                <div class="section-label">Arena Engine Variant</div>
+                <div class="grid-select cat-grid" style="margin-bottom: 15px;">
+                    <button class="pill-btn active" data-type="lobby-gmode" onclick="setLobbyPreference('gmode', 'scramble', this)">Scramble Words</button>
+                    <button class="pill-btn" data-type="lobby-gmode" onclick="setLobbyPreference('gmode', 'emoji', this)">Emoji Decoding</button>
+                </div>
+
+                <div id="lobby-scramble-settings">
+                    <div class="section-label">Arena Difficulty</div>
+                    <div class="grid-select">
+                        <button class="pill-btn active" data-type="lobby-diff" onclick="setLobbyPreference('diff', 'easy', this)">Easy</button>
+                        <button class="pill-btn" data-type="lobby-diff" onclick="setLobbyPreference('diff', 'medium', this)">Medium</button>
+                        <button class="pill-btn" data-type="lobby-diff" onclick="setLobbyPreference('diff', 'hard', this)">Hard</button>
+                    </div>
+                </div>
+                
+                <button class="btn btn-success" style="margin-top: 20px;" onclick="broadcastStartSignal()">Start Arena Session</button>
+            </div>
+            
+            <p id="client-wait-msg" class="subtitle hidden" style="margin-top:15px; color:var(--warning)">Waiting for Host to begin...</p>
+            <button class="btn btn-secondary" onclick="disconnectNetworkSession()">Disconnect</button>
         </div>
 
         <div id="view-game" class="view hidden">
@@ -285,11 +323,11 @@
 
         <div id="view-end" class="view hidden">
             <h1 id="end-title">Session Wrap</h1>
-            <p class="subtitle">Performance standings</p>
+            <p class="subtitle" id="end-subtitle-waiting">Dynamic performance standings</p>
 
             <div id="final-leaderboard-list" style="margin-bottom: 20px;"></div>
 
-            <button class="btn" onclick="switchActiveView('view-dash')">Return to Dashboard</button>
+            <button class="btn" onclick="returnToDashboardHome()">Return to Dashboard</button>
         </div>
 
         <div id="view-stats" class="view hidden">
@@ -311,7 +349,7 @@
     </div>
 
     <script>
-        // 🧩 SCRIPTURAL VOCABULARY DICTIONARY MODULE
+        // 🧩 ENGINES SCRIPTURAL VOCABULARY DATA MATRIX
         const SCRAMBLE_DICTIONARY = {
             easy: [
                 { word: "peter", solutions: ["peter"], hint: "A fisherman who became a rock-solid pillar of the early church." },
@@ -333,7 +371,7 @@
                 { word: "gideon", solutions: ["gideon"], hint: "A judge who routed an entire Midianite host with just 300 men." },
                 { word: "samson", solutions: ["samson"], hint: "A judge granted superhuman strength tied directly to his hair vow." },
                 { word: "solomon", solutions: ["solomon"], hint: "David's son renowned for ultimate wisdom and building the First Temple." },
-                { word: "esekiel", solutions: ["ezekiel"], hint: "A prophetic captive who witnessed a vision of a valley of dry bones." },
+                { word: "ezekiel", solutions: ["ezekiel"], hint: "A prophetic captive who witnessed a vision of a valley of dry bones." },
                 { word: "rebecca", solutions: ["rebecca", "rebekah"], hint: "Isaac's wife who met his servant at a deep desert well." },
                 { word: "stephen", solutions: ["stephen"], hint: "The first recorded Christian martyr of the early Jerusalem assembly." }
             ],
@@ -342,12 +380,12 @@
                 { word: "melchizedek", solutions: ["melchizedek"], hint: "A mysterious ancient king of Salem and priest of the Most High God." },
                 { word: "methuselah", solutions: ["methuselah"], hint: "The longest-lived patriarch recorded in biblical genealogy." },
                 { word: "mephibosheth", solutions: ["mephibosheth"], hint: "Jonathan's lame son who was welcomed to dine at King David's table." },
-                { word: "zerubbabel", solutions: ["zerubbabel"], hint: "A head layout leader who led the primary return from Babylonian exile to rebuild the temple." },
+                { word: "zerubbabel", solutions: ["zerubbabel"], hint: "A leader who led the primary return from Babylonian exile to rebuild the temple." },
                 { word: "sennacherib", solutions: ["sennacherib"], hint: "The Assyrian monarch who besieged Jerusalem under King Hezekiah's rule." },
                 { word: "potiphar", solutions: ["potiphar"], hint: "An Egyptian officer and captain of the guard who purchased Joseph." },
                 { word: "habakkuk", solutions: ["habakkuk"], hint: "A minor prophet who questioned divine justice from his watchtower deck." },
                 { word: "jehoshabeath", solutions: ["jehoshabeath", "jehosheba"], hint: "A princess who saved infant Prince Joash from Athaliah's purge layout." },
-                { word: "maher-shalal-hash-baz", solutions: ["maher-shalal-hash-baz", "mahershalalhashbaz"], hint: "Isaiah's son with the longest name in scripture, meaning 'swift is the booty'." }
+                { word: "mahershalalhashbaz", solutions: ["maher-shalal-hash-baz", "mahershalalhashbaz"], hint: "Isaiah's son with the longest name in scripture, meaning 'swift is the booty'." }
             ]
         };
 
@@ -364,17 +402,27 @@
             { puzzle: "🪙30💰💋", answers: ["judas", "judas iscariot", "betrayal"], hint: "Matthew 26: A dark kiss that traded the Master for silver coins." }
         ];
 
-        // ⚙️ CORE STATE MACHINES
+        // ⚙️ SYSTEM CORE RUNTIME STATES
         let activePrefs = { diff: 'easy', gmode: 'scramble' };
+        let lobbyPrefs = { diff: 'easy', gmode: 'scramble' };
+        let myProfile = { name: "Believer", id: null, isHost: false, isNetworkMode: false };
+        
         let liveSession = { pool: [], index: 0, score: 0, speedBonus: 0, streak: 0, lives: 3, timeLeft: 100, lockTurn: false, gameMode: 'scramble' };
         let coreSystemClock = null;
         let isSecretUnlocked = localStorage.getItem('scramble_secret') === 'true';
 
-        // 💾 PERSISTENCE CONTROLLERS
+        // 📡 TELEMETRY NETWORKING CACHING
+        let peerInstance = null;
+        let networkConnections = [];
+        let peerScoresCache = {};
+        let finishedPlayersTracking = new Set(); 
+
+        // 💾 SYSTEM ENGINE LOCAL PERSISTENCE RECORD
         let savedStore = JSON.parse(localStorage.getItem('scramble_System_Data')) || {
             games: 0, correct: 0, wrong: 0, topStreak: 0, dailyStreak: 0, timestamp: null
         };
 
+        // 🎬 LIFECYCLE RUNTIME START LOADER
         window.onload = () => {
             initBackgroundParticles();
             setTimeout(() => {
@@ -388,7 +436,7 @@
             }, 2200);
         };
 
-        // 🧿 BACKGROUND ENGINE CANVAS
+        // 🧿 BACKGROUND PARTICLES SYSTEM
         const canvas = document.getElementById('bg-canvas');
         const ctx = canvas.getContext('2d');
         let particleArray = [];
@@ -420,7 +468,7 @@
         }
         window.addEventListener('resize', () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; });
 
-        // 🎵 CORE OSCILLATOR GENERATION AUDIO TUNES
+        // 🎵 PROGRAMMATIC OSCILLATOR AUDIO GENERATORS
         function playAudioTone(flavor) {
             try {
                 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -447,7 +495,7 @@
                     gain.gain.setValueAtTime(0.06, audioCtx.currentTime);
                     osc.start(); osc.stop(audioCtx.currentTime + 0.45);
                 }
-            } catch(e) {}
+            } catch(e) { console.log("Audio pipeline blocked."); }
         }
 
         function invokeHapticFeedback(pattern) { if (navigator.vibrate) navigator.vibrate(pattern); }
@@ -471,6 +519,18 @@
             }
         }
 
+        function setLobbyPreference(category, value, element) {
+            lobbyPrefs[category] = value;
+            document.querySelectorAll(`[data-type="lobby-${category}"]`).forEach(btn => btn.classList.remove('active'));
+            element.classList.add('active');
+
+            if (category === 'gmode') {
+                const scrambleSubPanel = document.getElementById('lobby-scramble-settings');
+                if (value === 'emoji') scrambleSubPanel.classList.add('hidden');
+                else scrambleSubPanel.classList.remove('hidden');
+            }
+        }
+
         function switchActiveView(viewId) {
             document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
             document.getElementById(viewId).classList.remove('hidden');
@@ -478,15 +538,28 @@
             if(viewId === 'view-stats') { syncLedgerData(); verifyBadges(); }
         }
 
+        // 📊 DATA CACHE SYNC CONTROLLERS
         function syncDashboardData() {
             evaluateDailyStreakTracking();
-            document.getElementById('dash-games').textContent = savedStore.games;
-            document.getElementById('dash-streak').textContent = savedStore.dailyStreak;
+            
+            const gamesEl = document.getElementById('dash-games');
+            const streakEl = document.getElementById('dash-streak');
+            
+            if (gamesEl) gamesEl.textContent = savedStore.games;
+            if (streakEl) streakEl.textContent = savedStore.dailyStreak;
+        }
+
+        function syncRoundCounterUI() {
+            const counterEl = document.getElementById('game-round-counter');
+            if (counterEl && liveSession.pool && liveSession.pool.length > 0) {
+                counterEl.textContent = `${liveSession.index + 1}/${liveSession.pool.length}`;
+            }
         }
 
         function syncLedgerData() {
             const total = savedStore.correct + savedStore.wrong;
             const absolutePct = total === 0 ? 0 : Math.round((savedStore.correct / total) * 100);
+            
             document.getElementById('stat-accuracy').textContent = absolutePct + "%";
             document.getElementById('stat-best-streak').textContent = savedStore.topStreak;
             document.getElementById('stat-correct').textContent = savedStore.correct;
@@ -503,27 +576,36 @@
             localStorage.setItem('scramble_System_Data', JSON.stringify(savedStore));
         }
 
+        // 💡 CLUE HINT MECHANICS ENGINE
         function revealActiveHint() {
             if (liveSession.score >= 5 && !liveSession.lockTurn) {
                 liveSession.score -= 5;
                 document.getElementById('game-score').textContent = liveSession.score;
                 
                 let currentItem = liveSession.pool[liveSession.index];
-                document.getElementById('hint-text').textContent = currentItem.hint || "No hints compiled.";
+                document.getElementById('hint-text').textContent = currentItem.hint || "No clues available.";
                     
                 const hintBtn = document.getElementById('hint-btn');
-                if (hintBtn) { hintBtn.disabled = true; hintBtn.style.opacity = "0.4"; }
+                if (hintBtn) {
+                    hintBtn.disabled = true;
+                    hintBtn.style.opacity = "0.4";
+                }
             } else if (liveSession.score < 5) {
                 document.getElementById('hint-text').textContent = "⚠️ Requires 5 points!";
             }
         }
 
         function resetHintUI() {
-            document.getElementById('hint-text').textContent = "";
+            const hintTextEl = document.getElementById('hint-text');
             const hintBtn = document.getElementById('hint-btn');
-            if (hintBtn) { hintBtn.disabled = false; hintBtn.style.opacity = "1"; }
+            if (hintTextEl) hintTextEl.textContent = "";
+            if (hintBtn) {
+                hintBtn.disabled = false;
+                hintBtn.style.opacity = "1";
+            }
         }
 
+        // 🏆 ACHIEVEMENT BADGE VAULT ENGINE
         function verifyBadges() {
             const vault = document.getElementById('badge-vault');
             if(!vault) return;
@@ -547,8 +629,12 @@
             });
         }
 
-        // 🕹️ SOLO CORE INITIALIZATION ENGINE
+        // 🕹️ SOLO GAMEPLAY INIT ENGINE
         function initiateLocalSoloGame() {
+            const nameIn = document.getElementById('player-profile-name');
+            myProfile.name = (nameIn && nameIn.value.trim()) || "Believer";
+            myProfile.isNetworkMode = false; myProfile.isHost = false;
+
             let selectedMode = activePrefs.gmode;
             let targetPool = [];
 
@@ -568,8 +654,7 @@
                     hint: item.hint
                 }));
             }
-
-            // Shuffle pool and slice out exactly 5 decks for a dynamic layout round
+            
             liveSession.pool = targetPool.sort(() => Math.random() - 0.5).slice(0, 5);
             liveSession.gameMode = selectedMode;
             
@@ -577,9 +662,158 @@
             savedStore.timestamp = new Date().getTime();
             localStorage.setItem('scramble_System_Data', JSON.stringify(savedStore));
 
+            launchCommonGameplaySequence();
+        }
+
+        // 📡 MULTI-DEVICE ARENA COUPLING NETWORKS
+        function enterNetworkLobbyView() {
+            if (typeof Peer === 'undefined') {
+                alert("Network matrix components failed to link up.");
+                return;
+            }
+
+            const nameIn = document.getElementById('player-profile-name');
+            myProfile.name = (nameIn && nameIn.value.trim()) || "Seeker";
+            myProfile.isNetworkMode = true;
+            
+            const promptId = prompt("To join an active match, paste the Host Room ID. To generate a brand new host arena instead, leave this empty:");
+            if (promptId === null) return;
+            let targetedId = promptId.trim().toUpperCase();
+
+            finishedPlayersTracking.clear();
+
+            if (targetedId === "") {
+                myProfile.isHost = true;
+                const generatedRoomCode = "BB-" + Math.floor(1000 + Math.random() * 9000);
+                peerInstance = new Peer(generatedRoomCode);
+
+                peerInstance.on('open', (id) => {
+                    document.getElementById('lobby-room-display').textContent = id;
+                    document.getElementById('lobby-status-text').textContent = "Waiting for players to connect...";
+                    document.getElementById('host-settings-panel').classList.remove('hidden');
+                    peerScoresCache = {};
+                    peerScoresCache[myProfile.name] = 0;
+                    updateLobbyListUI();
+                    switchActiveView('view-lobby');
+                });
+
+                peerInstance.on('connection', (conn) => {
+                    networkConnections.push(conn);
+                    setupNetworkDataChannels(conn);
+                });
+            } else {
+                myProfile.isHost = false;
+                peerInstance = new Peer();
+
+                peerInstance.on('open', () => {
+                    const conn = peerInstance.connect(targetedId);
+                    networkConnections.push(conn);
+                    setupNetworkDataChannels(conn);
+                    
+                    document.getElementById('lobby-room-display').textContent = targetedId;
+                    document.getElementById('lobby-status-text').textContent = "Connecting to Host device...";
+                    document.getElementById('client-wait-msg').classList.remove('hidden');
+                    document.getElementById('host-settings-panel').classList.add('hidden');
+                    switchActiveView('view-lobby');
+                });
+            }
+        }
+
+        function setupNetworkDataChannels(conn) {
+            conn.on('open', () => {
+                if(!myProfile.isHost) conn.send({ type: 'HANDSHAKE', name: myProfile.name });
+            });
+
+            conn.on('data', (data) => {
+                // 📡 HOST ROUTING DECK (Re-broadcasts immediately to maintain sync layout)
+                if (myProfile.isHost) {
+                    if (data.type === 'HANDSHAKE') {
+                        peerScoresCache[data.name] = 0;
+                        updateLobbyListUI();
+                        broadcastPayload({ type: 'LOBBY_UPDATE', list: Object.keys(peerScoresCache) });
+                    }
+                    if (data.type === 'SCORE_UPDATE') {
+                        peerScoresCache[data.name] = data.score;
+                        broadcastPayload({ type: 'SCORE_UPDATE', name: data.name, score: data.score });
+                        if(!document.getElementById('view-end').classList.contains('hidden')) updateFinalLeaderboardUI();
+                    }
+                    if (data.type === 'FINAL_SCORE_UPDATE') {
+                        peerScoresCache[data.name] = data.score;
+                        finishedPlayersTracking.add(data.name);
+                        broadcastPayload({ type: 'FINAL_SCORE_UPDATE', name: data.name, score: data.score });
+                        if(!document.getElementById('view-end').classList.contains('hidden')) updateFinalLeaderboardUI();
+                        checkArenaCompletion();
+                    }
+                } 
+                // 📱 CLIENT RECEIVING DECK
+                else {
+                    if (data.type === 'LOBBY_UPDATE') {
+                        updateLobbyListUI(data.list);
+                        data.list.forEach(name => { if(!(name in peerScoresCache)) peerScoresCache[name] = 0; });
+                    }
+                    if (data.type === 'START_GAME') {
+                        liveSession.pool = data.pool;
+                        liveSession.gameMode = data.mode;
+                        finishedPlayersTracking.clear();
+                        launchCommonGameplaySequence();
+                    }
+                    if (data.type === 'SCORE_UPDATE') {
+                        peerScoresCache[data.name] = data.score;
+                        if(!document.getElementById('view-end').classList.contains('hidden')) updateFinalLeaderboardUI();
+                    }
+                    if (data.type === 'FINAL_SCORE_UPDATE') {
+                        peerScoresCache[data.name] = data.score;
+                        finishedPlayersTracking.add(data.name);
+                        if(!document.getElementById('view-end').classList.contains('hidden')) updateFinalLeaderboardUI();
+                        checkArenaCompletion();
+                    }
+                }
+            });
+        }
+
+        function broadcastPayload(payload) {
+            networkConnections.forEach(conn => { if(conn.open) conn.send(payload); });
+        }
+
+        function updateLobbyListUI(suppliedList) {
+            const container = document.getElementById('lobby-players-list');
+            if (!container) return;
+            const targetList = suppliedList || Object.keys(peerScoresCache);
+            container.innerHTML = targetList.map(name => `<div style="padding:6px 0; font-weight:700">👤 ${name}</div>`).join('');
+        }
+
+        // 📡 HOST START BROADCASTER
+        function broadcastStartSignal() {
+            let structuredPool = [];
+            if (lobbyPrefs.gmode === 'scramble') {
+                let sourceWords = SCRAMBLE_DICTIONARY[lobbyPrefs.diff] || SCRAMBLE_DICTIONARY.easy;
+                structuredPool = sourceWords.map(w => ({ 
+                    display: calculateScramble(w.word), 
+                    solutions: w.solutions.map(s => s.toLowerCase()),
+                    hint: w.hint
+                }));
+            } else {
+                structuredPool = EMOJI_DICTIONARY.map(item => ({ 
+                    display: item.puzzle, 
+                    solutions: item.answers.map(a => a.toLowerCase()),
+                    hint: item.hint 
+                }));
+            }
+            
+            let slicedPool = structuredPool.sort(() => Math.random() - 0.5).slice(0, 5);
+            
+            finishedPlayersTracking.clear();
+            broadcastPayload({ type: 'START_GAME', pool: slicedPool, mode: lobbyPrefs.gmode });
+            
+            liveSession.pool = slicedPool;
+            liveSession.gameMode = lobbyPrefs.gmode;
+            launchCommonGameplaySequence();
+        }
+
+        // 🎮 UNIVERSAL ENGINE RUNTIME INTERFACE LOOP
+        function launchCommonGameplaySequence() {
             liveSession.index = 0; liveSession.score = 0; liveSession.speedBonus = 0;
             liveSession.streak = 0; liveSession.lives = 3;
-            
             switchActiveView('view-game');
             syncHUD();
             displayCurrentRound();
@@ -587,10 +821,11 @@
 
         function syncHUD() {
             document.getElementById('game-score').textContent = liveSession.score;
-            document.getElementById('game-lives').textContent = "❤️".repeat(liveSession.lives);
+            document.getElementById('game-lives').textContent = myProfile.isNetworkMode ? `⏱️ Arena Match` : "❤️".repeat(liveSession.lives);
             
             const pill = document.getElementById('game-streak-pill');
             const streakValEl = document.getElementById('game-streak-val');
+
             if (liveSession.streak > 0) {
                 pill.classList.remove('hidden');
                 streakValEl.textContent = liveSession.streak;
@@ -600,13 +835,12 @@
         }
 
         function displayCurrentRound() {
-            if(!liveSession.pool || liveSession.index >= liveSession.pool.length || liveSession.lives <= 0) {
+            if(!liveSession.pool || liveSession.index >= liveSession.pool.length || (!myProfile.isNetworkMode && liveSession.lives <= 0)) {
                 return compileFinalReport();
             }
             liveSession.lockTurn = false;
             resetHintUI();
-            
-            document.getElementById('game-round-counter').textContent = `${liveSession.index + 1}/${liveSession.pool.length}`;
+            syncRoundCounterUI();
             
             const renderTarget = document.getElementById('puzzle-render-target');
             renderTarget.textContent = liveSession.pool[liveSession.index].display;
@@ -697,6 +931,17 @@
 
             localStorage.setItem('scramble_System_Data', JSON.stringify(savedStore));
             verifyScoreUnlocks();
+
+            if (myProfile.isNetworkMode) {
+                peerScoresCache[myProfile.name] = liveSession.score;
+                if (myProfile.isHost) {
+                    broadcastPayload({ type: 'SCORE_UPDATE', name: myProfile.name, score: liveSession.score });
+                } else {
+                    if (networkConnections && networkConnections.open) {
+                        networkConnections.send({ type: 'SCORE_UPDATE', name: myProfile.name, score: liveSession.score });
+                    }
+                }
+            }
         }
 
         function verifyScoreUnlocks() {
@@ -717,22 +962,80 @@
         function compileFinalReport() {
             clearInterval(coreSystemClock);
             
-            if(liveSession.score > 20) {
+            if(!myProfile.isNetworkMode && liveSession.score > 20) {
                 const lastDayStr = savedStore.timestamp ? new Date(savedStore.timestamp).toDateString() : null;
                 if(lastDayStr !== new Date().toDateString()) savedStore.dailyStreak++;
                 localStorage.setItem('scramble_System_Data', JSON.stringify(savedStore));
             }
 
-            document.getElementById('end-title').textContent = (liveSession.lives <= 0) ? "Session Defeat" : "Campaign Concluded";
+            document.getElementById('end-title').textContent = (!myProfile.isNetworkMode && liveSession.lives <= 0) ? "Session Defeat" : "Arena Concluded";
 
-            const container = document.getElementById('final-leaderboard-list');
-            container.innerHTML = `
-                <div class="leaderboard-item"><span>👤 Base Score</span><span style="color:var(--primary)">${liveSession.score} pts</span></div>
-                <div class="leaderboard-item"><span>⚡ Speed Bonus</span><span style="color:var(--success)">+${liveSession.speedBonus} pts</span></div>
-            `;
+            if (myProfile.isNetworkMode) {
+                finishedPlayersTracking.add(myProfile.name);
+                peerScoresCache[myProfile.name] = liveSession.score;
+                
+                if (myProfile.isHost) {
+                    broadcastPayload({ type: 'FINAL_SCORE_UPDATE', name: myProfile.name, score: liveSession.score });
+                } else {
+                    if (networkConnections && networkConnections.open) {
+                        networkConnections.send({ type: 'FINAL_SCORE_UPDATE', name: myProfile.name, score: liveSession.score });
+                    }
+                }
+            }
             
+            updateFinalLeaderboardUI();
             switchActiveView('view-end');
             playAudioTone('victory');
+            
+            if (myProfile.isNetworkMode) {
+                checkArenaCompletion();
+            }
+        }
+
+        function checkArenaCompletion() {
+            const totalPlayersCount = Object.keys(peerScoresCache).length;
+            const subtitleEl = document.getElementById('end-subtitle-waiting');
+            
+            if (finishedPlayersTracking.size >= totalPlayersCount) {
+                subtitleEl.textContent = "🏆 Final Arena Standings!";
+            } else {
+                subtitleEl.textContent = `Awaiting opponents... (${finishedPlayersTracking.size}/${totalPlayersCount} done)`;
+            }
+        }
+
+        function updateFinalLeaderboardUI() {
+            const container = document.getElementById('final-leaderboard-list');
+            if(!container) return;
+
+            if (myProfile.isNetworkMode) {
+                const sorted = Object.entries(peerScoresCache).sort((a,b) => b - a);
+                container.innerHTML = sorted.map(([name, val], idx) => {
+                    let isDone = finishedPlayersTracking.has(name);
+                    return `
+                        <div class="leaderboard-item" style="opacity: ${isDone ? '1' : '0.5'}">
+                            <span>${idx === 0 && isDone ? '👑' : '👤'} ${name} ${isDone ? '' : '(Playing...)'}</span>
+                            <span style="color:var(--success)">${val} pts</span>
+                        </div>
+                    `;
+                }).join('');
+            } else {
+                container.innerHTML = `
+                    <div class="leaderboard-item"><span>👤 Base Score</span><span style="color:var(--primary)">${liveSession.score} pts</span></div>
+                    <div class="leaderboard-item"><span>⚡ Speed Bonus</span><span style="color:var(--success)">+${liveSession.speedBonus} pts</span></div>
+                `;
+            }
+        }
+
+        function disconnectNetworkSession() {
+            if(peerInstance) peerInstance.destroy();
+            returnToDashboardHome();
+        }
+
+        function returnToDashboardHome() {
+            myProfile.isNetworkMode = false; networkConnections = []; peerScoresCache = {};
+            finishedPlayersTracking.clear();
+            document.getElementById('end-subtitle-waiting').textContent = "Performance standings";
+            switchActiveView('view-dash');
         }
 
         document.getElementById('game-input').addEventListener('keypress', e => { if(e.key === 'Enter') submitGuessedAnswer(); });

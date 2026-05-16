@@ -2,525 +2,887 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bible Scramble Ultra</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Bible Blitz Ultra: Grand Master Edition</title>
+    <!-- Decentralized signaling network loop layer via PeerJS -->
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
     <style>
         :root {
-            --bg: #f8fafc;
-            --card: #ffffff;
             --primary: #6366f1;
             --primary-hover: #4f46e5;
             --success: #10b981;
             --error: #ef4444;
             --warning: #f59e0b;
-            --text-main: #1e293b;
-            --text-sub: #64748b;
-            --border: #e2e8f0;
-            --input-bg: #f1f5f9;
-        }
-
-        [data-theme="dark"] {
-            --bg: #0f172a;
-            --card: #1e293b;
-            --primary: #818cf8;
-            --primary-hover: #6366f1;
+            --surface: rgba(30, 41, 59, 0.45);
+            --surface-accent: rgba(255, 255, 255, 0.06);
+            --border: rgba(255, 255, 255, 0.1);
             --text-main: #f8fafc;
             --text-sub: #94a3b8;
-            --border: #334155;
-            --input-bg: #0f172a;
+            --gold: #fbbf24;
         }
 
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', system-ui, sans-serif; transition: background-color 0.3s, color 0.3s; }
+        * { 
+            box-sizing: border-box; 
+            margin: 0; 
+            padding: 0; 
+            font-family: 'Inter', system-ui, -apple-system, sans-serif; 
+            -webkit-tap-highlight-color: transparent;
+        }
 
-        body {
-            background-color: var(--bg);
+        body, html {
+            height: 100%;
+            width: 100%;
+            background: #0f172a;
             color: var(--text-main);
+            overflow: hidden;
             display: flex;
             justify-content: center;
             align-items: center;
-            min-height: 100vh;
-            padding: 15px;
         }
 
-        .app-container {
-            background: var(--card);
-            padding: 30px;
-            border-radius: 28px;
-            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.1);
-            width: 100%;
-            max-width: 440px;
-            position: relative;
-            overflow: hidden;
+        /* 🧿 Visual Atmosphere Layouts */
+        .bg-mesh {
+            position: fixed;
+            inset: 0;
+            background: 
+                radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.18) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(168, 85, 247, 0.15) 0px, transparent 50%),
+                radial-gradient(at 50% 50%, rgba(15, 23, 42, 1) 0px, #0f172a 100%);
+            z-index: -2;
         }
 
-        /* Views management */
+        #bg-canvas {
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            pointer-events: none;
+            opacity: 0.6;
+        }
+
+        /* 🎬 Cinematic App Splash Screen */
+        #intro-screen {
+            position: fixed;
+            inset: 0;
+            background: #020617;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            transition: transform 0.8s cubic-bezier(0.85, 0, 0.15, 1);
+        }
+
+        .logo-container { text-align: center; }
+        .logo-text {
+            font-size: 2.5rem;
+            font-weight: 900;
+            letter-spacing: 0.3em;
+            background: linear-gradient(to right, #ffffff, #818cf8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            opacity: 0;
+            transform: translateY(20px);
+            animation: cinematicFade 2.2s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+        }
+
+        @keyframes cinematicFade {
+            0% { opacity: 0; transform: translateY(20px); letter-spacing: 0.3em; }
+            40% { opacity: 1; transform: translateY(0); }
+            70% { opacity: 1; transform: translateY(0); letter-spacing: 0.15em; }
+            100% { opacity: 0; transform: translateY(-20px); }
+        }
+
+        /* 🎨 Master Premium App Shell Framework */
+        .app-shell {
+            width: 90%;
+            max-width: 430px;
+            background: var(--surface);
+            backdrop-filter: blur(30px);
+            -webkit-backdrop-filter: blur(30px);
+            border: 1px solid var(--border);
+            border-radius: 36px;
+            padding: 35px 25px;
+            box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.7);
+            transform: translateY(40px);
+            opacity: 0;
+            transition: all 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        .app-shell.active { transform: translateY(0); opacity: 1; }
+
+        /* 👑 Gold Elite Overrides */
+        .app-shell.secret-active {
+            border-color: var(--gold) !important;
+            box-shadow: 0 0 40px rgba(251, 191, 36, 0.15), 0 25px 60px -15px rgba(0,0,0,0.8);
+        }
+        .app-shell.secret-active .puzzle-display {
+            color: var(--gold) !important;
+            filter: drop-shadow(0 0 15px rgba(251, 191, 36, 0.6));
+        }
+
         .view { display: flex; flex-direction: column; }
         .hidden { display: none !important; }
 
-        /* Global UI Elements */
-        h1 { font-size: 2rem; font-weight: 800; text-align: center; margin-bottom: 5px; }
+        h1 { font-size: 1.8rem; font-weight: 800; text-align: center; letter-spacing: -0.5px; }
         .subtitle { color: var(--text-sub); text-align: center; font-size: 0.9rem; margin-bottom: 25px; }
-        
+
+        /* Buttons & Interface Layout Matrix */
         .btn {
             width: 100%;
             padding: 16px;
+            border-radius: 18px;
             border: none;
-            border-radius: 16px;
-            font-weight: 700;
-            font-size: 1rem;
-            cursor: pointer;
-            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             background: var(--primary);
             color: white;
-            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+            font-weight: 800;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 10px;
+            box-shadow: 0 8px 20px rgba(99, 102, 241, 0.25);
         }
-        .btn:active { transform: scale(0.96); }
-        .btn-secondary { background: none; border: 2px solid var(--border); color: var(--text-main); box-shadow: none; margin-top: 10px; }
-        .btn-next { background: var(--text-main); color: var(--card); }
+        .btn:active { transform: scale(0.96); opacity: 0.9; }
+        .btn-secondary { background: transparent; border: 1px solid var(--border); color: var(--text-main); box-shadow: none; }
+        .btn-success { background: var(--success); box-shadow: 0 8px 20px rgba(16, 185, 129, 0.25); }
+        .btn-next { background: var(--text-main); color: #0f172a; box-shadow: none; }
 
-        /* Dashboard Selectors */
-        .section-label { font-size: 0.75rem; font-weight: 800; color: var(--text-sub); text-transform: uppercase; margin: 15px 0 8px; text-align: left; }
+        .section-label { font-size: 0.75rem; font-weight: 800; color: var(--text-sub); text-transform: uppercase; margin: 20px 0 8px 4px; letter-spacing: 1px; }
         .grid-select { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
         .cat-grid { grid-template-columns: repeat(2, 1fr); }
         
         .pill-btn {
-            padding: 12px 8px;
-            border: 2px solid var(--border);
-            background: none;
-            border-radius: 12px;
+            padding: 14px 10px;
+            border: 1px solid var(--border);
+            background: var(--surface-accent);
+            border-radius: 14px;
             cursor: pointer;
             font-weight: 700;
             font-size: 0.85rem;
             color: var(--text-main);
+            transition: all 0.2s ease;
         }
-        .pill-btn.active { border-color: var(--primary); background: rgba(99, 102, 241, 0.1); color: var(--primary); }
+        .pill-btn.active { border-color: var(--primary); background: rgba(99, 102, 241, 0.2); color: white; }
 
-        /* HUD & Gameplay */
-        .hud { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; font-weight: 800; font-size: 0.9rem; }
+        /* Gameplay Metrics Tracking Displays */
+        .hud { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; font-weight: 800; font-size: 0.85rem; letter-spacing: 0.5px; }
         .lives { color: var(--error); letter-spacing: 2px; }
-        .streak-badge { background: var(--warning); color: white; padding: 4px 12px; border-radius: 99px; font-size: 0.8rem; }
+        .streak-pill { background: var(--warning); color: #000; padding: 4px 12px; border-radius: 100px; font-weight: 900; font-size: 0.75rem; }
         
-        .timer-bar-container { width: 100%; height: 6px; background: var(--border); border-radius: 3px; margin-bottom: 25px; overflow: hidden; }
+        .timer-track { width: 100%; height: 6px; background: rgba(255,255,255,0.08); border-radius: 100px; margin-bottom: 20px; overflow: hidden; }
         .timer-bar { width: 100%; height: 100%; background: var(--primary); transform-origin: left; transition: transform 0.1s linear; }
 
-        .scrambled-box {
-            font-size: 2.5rem;
+        .puzzle-display {
+            font-size: 2.8rem;
             font-weight: 900;
-            letter-spacing: 6px;
-            color: var(--primary);
+            margin: 25px 0;
             text-align: center;
-            margin: 20px 0;
+            letter-spacing: 6px;
             text-transform: uppercase;
-            animation: slideIn 0.3s ease-out;
+            filter: drop-shadow(0 0 12px rgba(99, 102, 241, 0.4));
+            min-height: 65px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
+        .emoji-mode-text { font-size: 2.2rem; letter-spacing: 0px !important; }
 
         input {
             width: 100%;
-            padding: 16px;
-            border-radius: 16px;
-            border: 2px solid var(--border);
-            background: var(--input-bg);
-            color: var(--text-main);
-            text-align: center;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid var(--border);
+            padding: 18px;
+            border-radius: 18px;
+            color: white;
             font-size: 1.2rem;
             font-weight: 700;
+            text-align: center;
             outline: none;
             margin-bottom: 15px;
+            transition: all 0.3s;
         }
-        input:focus { border-color: var(--primary); background: var(--card); }
+        input:focus { background: rgba(255, 255, 255, 0.12); border-color: var(--primary); }
 
-        .feedback { text-align: center; font-weight: 700; min-height: 24px; margin-top: 15px; font-size: 1rem; }
+        .feedback { text-align: center; font-weight: 700; min-height: 24px; margin-top: 15px; font-size: 0.95rem; }
 
-        /* Settings Toggle */
-        .theme-toggle { position: absolute; top: 20px; left: 20px; cursor: pointer; background: none; border: none; font-size: 1.2rem; }
+        /* Dashboard Analytical Metrics Panels */
+        .stats-summary { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 15px; }
+        .stat-node { background: var(--surface-accent); padding: 16px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.03); text-align: center; }
+        .stat-val { font-size: 1.5rem; font-weight: 900; color: var(--primary); display: block; }
+        .stat-lbl { font-size: 0.65rem; color: var(--text-sub); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
 
-        /* Stats & Leaderboard Layout */
-        .stats-summary { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 20px; }
-        .stat-node { background: var(--input-bg); padding: 15px; border-radius: 16px; text-align: center; }
-        .stat-val { font-size: 1.6rem; font-weight: 800; color: var(--primary); display: block; }
-        .stat-lbl { font-size: 0.7rem; color: var(--text-sub); font-weight: 700; text-transform: uppercase; }
+        /* Networking & Lobby UI Structures */
+        .room-badge { background: rgba(255,255,255,0.05); padding: 14px; border-radius: 16px; text-align: center; font-weight: 700; font-size: 1.1rem; margin-bottom: 15px; border: 1px dashed var(--border); }
+        .lobby-list { background: rgba(0,0,0,0.2); padding: 12px; border-radius: 16px; min-height: 60px; margin-bottom: 15px; font-size: 0.9rem; }
+        .leaderboard-item { display: flex; justify-content: space-between; background: var(--surface-accent); padding: 14px 16px; border-radius: 16px; margin-bottom: 8px; border: 1px solid var(--border); font-weight: 700; }
 
-        /* Animations */
-        @keyframes slideIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-10px); } 75% { transform: translateX(10px); } }
-        .shake { animation: shake 0.3s ease-in-out; }
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-8px); } 75% { transform: translateX(8px); } }
+        .shake { animation: shake 0.25s cubic-bezier(.36,.07,.19,.97) both; }
     </style>
 </head>
-<body data-theme="light">
+<body>
 
-    <div class="app-container" id="app">
-        <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
+    <div class="bg-mesh"></div>
+    <canvas id="bg-canvas"></canvas>
 
-        <!-- 🏠 VIEW: DASHBOARD -->
+    <!-- 🎬 Intro Cinematic Layer -->
+    <div id="intro-screen">
+        <div class="logo-container">
+            <div class="logo-text">BIBLE BLITZ</div>
+        </div>
+    </div>
+
+    <!-- 📱 Master App Content -->
+    <div class="app-shell" id="app-shell">
+        
+        <!-- 🏠 VIEW: PERSISTENCE METRICS DASHBOARD -->
         <div id="view-dash" class="view">
-            <h1>Bible Scramble</h1>
-            <p class="subtitle">The Ultimate Interactive Blitz</p>
+            <h1>Bible Blitz Ultra</h1>
+            <p class="subtitle">Premium Scriptural Enigma Game</p>
 
             <div class="stats-summary">
-                <div class="stat-node"><span class="stat-val" id="dash-games">0</span><span class="stat-lbl">Played</span></div>
+                <div class="stat-node"><span class="stat-val" id="dash-games">0</span><span class="stat-lbl">Campaigns</span></div>
                 <div class="stat-node"><span class="stat-val" id="dash-streak" style="color:var(--warning);">0</span><span class="stat-lbl">Daily Streak</span></div>
             </div>
 
-            <div class="section-label">Select Difficulty</div>
-            <div class="grid-select">
-                <button class="pill-btn active" data-type="diff" data-val="easy" onclick="setOpt('diff', 'easy', this)">Easy</button>
-                <button class="pill-btn" data-type="diff" data-val="medium" onclick="setOpt('diff', 'medium', this)">Medium</button>
-                <button class="pill-btn" data-type="diff" data-val="hard" onclick="setOpt('diff', 'hard', this)">Hard</button>
-            </div>
+            <div id="secret-notice" style="text-align: center; font-size: 0.75rem; font-weight: 800; color: var(--gold); margin-bottom: 10px;" class="hidden">👑 ELITE SECRET MODE UNLOCKED</div>
 
-            <div class="section-label">Select Category</div>
-            <div class="grid-select cat-grid">
-                <button class="pill-btn active" data-type="cat" data-val="all" onclick="setOpt('cat', 'all', this)">All Words</button>
-                <button class="pill-btn" data-type="cat" data-val="ot" onclick="setOpt('cat', 'ot', this)">Old Testament</button>
-                <button class="pill-btn" data-type="cat" data-val="nt" onclick="setOpt('cat', 'nt', this)">New Testament</button>
-                <button class="pill-btn" data-type="cat" data-val="women" onclick="setOpt('cat', 'women', this)">Women</button>
-            </div>
+            <input type="text" id="player-profile-name" placeholder="Your Nickname" value="Believer">
 
-            <button class="btn" style="margin-top: 30px;" onclick="initGameSession()">Start Campaign</button>
-            <button class="btn btn-secondary" onclick="switchView('view-stats')">View History & Stats</button>
+            <button class="btn" onclick="initiateLocalSoloGame()">Launch Solo Game</button>
+            <button class="btn btn-secondary" onclick="enterNetworkLobbyView()">Multi-Device Arena</button>
+            <button class="btn btn-secondary" onclick="switchActiveView('view-stats')">Analytics Ledger</button>
         </div>
 
-        <!-- 🎮 VIEW: GAMEPLAY -->
+        <!-- ⏳ VIEW: MULTIPLAYER LOBBY SUITE -->
+        <div id="view-lobby" class="view hidden">
+            <h1>Match Lobby</h1>
+            <p class="subtitle" id="lobby-status-text">Creating arena instance...</p>
+            
+            <div class="room-badge">ROOM ID: <span id="lobby-room-display" style="color:var(--gold)">----</span></div>
+            
+            <div class="section-label">Connected Players</div>
+            <div class="lobby-list" id="lobby-players-list">Awaiting connections...</div>
+
+            <!-- Host Dynamic Constraints Selector Panel -->
+            <div id="host-settings-panel" class="hidden">
+                <div class="section-label">Engine Variant Mode</div>
+                <div class="grid-select cat-grid" style="margin-bottom: 15px;">
+                    <button class="pill-btn active" data-type="gmode" onclick="setPreference('gmode', 'scramble', this)">Scramble Words</button>
+                    <button class="pill-btn" data-type="gmode" onclick="setPreference('gmode', 'emoji', this)">Emoji Decoding</button>
+                </div>
+
+                <div id="scramble-settings">
+                    <div class="section-label">Difficulty Category</div>
+                    <div class="grid-select">
+                        <button class="pill-btn active" data-type="diff" onclick="setPreference('diff', 'easy', this)">Easy</button>
+                        <button class="pill-btn" data-type="diff" onclick="setPreference('diff', 'medium', this)">Medium</button>
+                        <button class="pill-btn" data-type="diff" onclick="setPreference('diff', 'hard', this)">Hard</button>
+                    </div>
+                </div>
+                
+                <button class="btn btn-success" style="margin-top: 20px;" onclick="broadcastStartSignal()">Start Arena Session</button>
+            </div>
+            
+            <p id="client-wait-msg" class="subtitle hidden" style="margin-top:15px; color:var(--warning)">Waiting for Host to begin...</p>
+            <button class="btn btn-secondary" onclick="disconnectNetworkSession()">Disconnect</button>
+        </div>
+
+        <!-- 🎮 VIEW: LIVE GAMEPLAY HUB -->
         <div id="view-game" class="view hidden">
             <div class="hud">
                 <div>SCORE: <span id="game-score">0</span></div>
-                <div id="game-streak-badge" class="streak-badge hidden">🔥 <span id="game-streak-val">0</span></div>
+                <div id="game-streak-pill" class="streak-pill hidden">🔥 <span id="game-streak-val">0</span></div>
                 <div class="lives" id="game-lives">❤️❤️❤️</div>
             </div>
 
-            <div class="timer-bar-container">
+            <div class="timer-track">
                 <div class="timer-bar" id="game-timer"></div>
             </div>
 
-            <div class="scrambled-box" id="scrambled-target">----</div>
-            <input type="text" id="game-input" placeholder="Solve name..." autocomplete="off">
-            <button class="btn" id="game-action-btn" onclick="handleInputSubmission()">Check Answer</button>
+            <div class="puzzle-display" id="puzzle-render-target">----</div>
+            
+            <input type="text" id="game-input" placeholder="Deduce target..." spellcheck="false" autocomplete="off">
+            
+            <button class="btn btn-secondary" id="hint-btn" onclick="revealActiveHint()" style="padding: 10px; font-size: 0.8rem; margin-top: -5px; margin-bottom: 12px;">💡 Use Hint (-5 Points)</button>
+            <div id="hint-text" style="font-size: 0.85rem; color: var(--warning); text-align: center; margin-bottom: 15px; font-style: italic; min-height: 20px;"></div>
+
+            <button class="btn" id="game-action-btn" onclick="submitGuessedAnswer()">Validate</button>
             <div class="feedback" id="game-feedback"></div>
         </div>
 
-        <!-- 🏁 VIEW: GAME OVER / REPORT -->
+        <!-- 🏁 VIEW: SUMMARY REPORT / ARENA TOURNAMENT SCOREBOARD -->
         <div id="view-end" class="view hidden">
-            <h1 id="end-title">Game Over</h1>
-            <p class="subtitle" id="end-subtitle">Campaign Report Card</p>
+            <h1 id="end-title">Session Wrap</h1>
+            <p class="subtitle">Dynamic performance standings</p>
 
-            <div class="stats-summary">
-                <div class="stat-node"><span class="stat-val" id="end-score">0</span><span class="stat-lbl">Final Score</span></div>
-                <div class="stat-node"><span class="stat-val" id="end-bonus" style="color:var(--success);">+0</span><span class="stat-lbl">Speed Bonuses</span></div>
-            </div>
+            <div id="final-leaderboard-list" style="margin-bottom: 20px;"></div>
 
-            <button class="btn" onclick="switchView('view-dash')">Return Home</button>
+            <button class="btn" onclick="returnToDashboardHome()">Return to Main View</button>
         </div>
 
-        <!-- 📊 VIEW: STATS & RECORDS -->
+        <!-- 📊 VIEW: GENERAL SYSTEM STATISTICAL LEDGER -->
         <div id="view-stats" class="view hidden">
-            <h1>Personal Ledger</h1>
-            <p class="subtitle">Lifetime tracking data</p>
+            <h1>Performance Ledger</h1>
+            <p class="subtitle">Permanent Local Metrics</p>
 
-            <div class="stats-summary" style="grid-template-columns: repeat(2, 1fr);">
-                <div class="stat-node"><span class="stat-val" id="stat-accuracy">0%</span><span class="stat-lbl">Accuracy Rate</span></div>
-                <div class="stat-node"><span class="stat-val" id="stat-best-streak">0</span><span class="stat-lbl">Top Hit Streak</span></div>
-                <div class="stat-node"><span class="stat-val" id="stat-correct">0</span><span class="stat-lbl">Total Correct</span></div>
-                <div class="stat-node"><span class="stat-val" id="stat-wrong">0</span><span class="stat-lbl">Total Wrong</span></div>
+            <div class="stats-summary">
+                <div class="stat-node"><span class="stat-val" id="stat-accuracy">0%</span><span class="stat-lbl">Accuracy</span></div>
+                <div class="stat-node"><span class="stat-val" id="stat-best-streak" style="color:var(--warning);">0</span><span class="stat-lbl">Peak Streak</span></div>
+                <div class="stat-node"><span class="stat-val" id="stat-correct" style="color:var(--success);">0</span><span class="stat-lbl">Correct Answers</span></div>
+                <div class="stat-node"><span class="stat-val" id="stat-wrong" style="color:var(--error);">0</span><span class="stat-lbl">Failures</span></div>
             </div>
 
-            <button class="btn" onclick="switchView('view-dash')">Back</button>
+            <div class="section-label">Unlocked Achievement Badges</div>
+            <div id="badge-vault" style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-bottom: 25px;"></div>
+
+            <button class="btn" onclick="switchActiveView('view-dash')">Go Back</button>
         </div>
     </div>
 
     <script>
-        // 🧩 BIBLE METADATA DICTIONARY
-        const BIBLE_DICTIONARY = {
-            easy: {
-                all: ["Peter", "Mary", "Ruth", "Noah", "David", "Adam", "Eve", "John", "Mark", "Paul", "Isaac"],
-                ot: ["Noah", "David", "Adam", "Eve", "Isaac"],
-                nt: ["Peter", "Mary", "John", "Mark", "Paul"],
-                women: ["Mary", "Ruth", "Eve"]
-            },
-            medium: {
-                all: ["Elizabeth", "Abraham", "Elijah", "Lazarus", "Gideon", "Samson", "Deborah", "Solomon", "Esther", "Samuel"],
-                ot: ["Abraham", "Elijah", "Gideon", "Samson", "Deborah", "Solomon", "Samuel"],
-                nt: ["Elizabeth", "Lazarus"],
-                women: ["Elizabeth", "Deborah", "Esther"]
-            },
-            hard: {
-                all: ["Nebuchadnezzar", "Melchizedek", "Methuselah", "Hezekiah", "Sennacherib", "Zerubbabel", "Jehoiakim", "Mephibosheth"],
-                ot: ["Nebuchadnezzar", "Melchizedek", "Methuselah", "Hezekiah", "Sennacherib", "Zerubbabel", "Jehoiakim", "Mephibosheth"],
-                nt: ["Melchizedek"], 
-                women: ["Athaliah", "Maacah", "Zipporah"] 
+        // 🧩 ENGINES SCRIPTURAL VOCABULARY DATA MATRIX
+        const SCRAMBLE_DICTIONARY = {
+            easy: [
+                { display: "", solutions: ["peter"], hint: "A fisherman who became a rock-solid pillar of the early church." },
+                { display: "", solutions: ["mary"], hint: "The favored mother chosen to bring Christ into the earthly realm." },
+                { display: "", solutions: ["ruth"], hint: "A loyal Moabite widow who refused to leave her mother-in-law." },
+                { display: "", solutions: ["noah"], hint: "A righteous man who built an ark to preserve life through the flood." },
+                { display: "", solutions: ["david"], hint: "A young shepherd who defeated a giant and became Israel's king." }
+            ],
+            medium: [
+                { display: "", solutions: ["elizabeth"], hint: "John the Baptist's mother, who was filled with joy during her pregnancy." },
+                { display: "", solutions: ["abraham"], hint: "Called out of Ur to become the father of many nations." },
+                { display: "", solutions: ["elijah"], hint: "A bold prophet who confronted Ahab and rode a whirlwind chariot into heaven." },
+                { display: "", solutions: ["lazarus"], hint: "A beloved friend of Jesus who walked out of his tomb after four days." }
+            ],
+            hard: [
+                { display: "", solutions: ["nebuchadnezzar"], hint: "The proud Babylonian emperor who built a colossal gold statue." },
+                { display: "", solutions: ["melchizedek"], hint: "A mysterious ancient king of Salem and priest of the Most High God." },
+                { display: "", solutions: ["methuselah"], hint: "The longest-lived patriarch recorded in biblical genealogy." },
+                { display: "", solutions: ["mephibosheth"], hint: "Jonathan's lame son who was welcomed to dine at King David's table." }
+            ]
+        };
+
+        const EMOJI_DICTIONARY = [
+            { puzzle: "🌈🐾🐘🦒", answers: ["noah", "noahs ark", "ark"], hint: "Genesis 6: A massive wooden vessel saving pairs of creatures." },
+            { puzzle: "🏹👑🏹💔", answers: ["david", "jonathan", "king david"], hint: "1 Samuel 18: A covenant of legendary friendship tested by royalty." },
+            { puzzle: "🔥🌋→🌊", answers: ["sodom", "gomorrah", "sodom and gomorrah"], hint: "Genesis 19: Cities of the plain consumed by fire from heaven." },
+            { puzzle: "🐋🤢→🙏", answers: ["jonah", "jonah and the whale"], hint: "Jonah 1: A runaway prophet spent three dark days in the deep." },
+            { puzzle: "🍞🍷✝️", answers: ["last supper", "jesus", "communion", "crucifixion"], hint: "The final passover meal transformed into an eternal covenant." },
+            { puzzle: "🕳️🦁🙏", answers: ["daniel", "daniel in the lions den"], hint: "Daniel 6: Unwavering prayer kept a prophet safe from hungry predators." },
+            { puzzle: "🪜😇⬆️⬇️", answers: ["jacob", "jacobs ladder", "jacob's ladder"], hint: "Genesis 28: A vision of a stairway stretching between earth and heaven." },
+            { puzzle: "🪨🪨→💧", answers: ["moses", "water from rock", "rock"], hint: "Numbers 20: A struck stone gushed refreshing springs in the desert." },
+            { puzzle: "👶👼👑", answers: ["jesus", "nativity", "baby jesus", "birth of jesus"], hint: "Luke 2: A newborn King laid quietly in a humble manger bed." },
+            { puzzle: "🪙30💰💋", answers: ["judas", "judas iscariot", "betrayal"], hint: "Matthew 26: A dark kiss that traded the Master for silver coins." }
+        ];
+
+        // ⚙️ SYSTEM CORE RUNTIME STATES
+        let activePrefs = { diff: 'easy', gmode: 'scramble' };
+        let myProfile = { name: "Player", id: null, isHost: false, isNetworkMode: false };
+        
+        let liveSession = { pool: [], index: 0, score: 0, speedBonus: 0, streak: 0, lives: 3, timeLeft: 100, lockTurn: false, gameMode: 'scramble' };
+        let coreSystemClock = null;
+        let isSecretUnlocked = localStorage.getItem('scramble_secret') === 'true';
+
+        // 📡 TELEMETRY NETWORKING CACHING
+        let peerInstance = null;
+        let networkConnections = [];
+        let peerScoresCache = {};
+
+        // 💾 SYSTEM ENGINE LOCAL PERSISTENCE RECORD
+        let savedStore = JSON.parse(localStorage.getItem('scramble_System_Data')) || {
+            games: 0, correct: 0, wrong: 0, topStreak: 0, dailyStreak: 0, timestamp: null
+        };
+
+        // 🎬 LIFECYCLE RUNTIME START LOADER
+        window.onload = () => {
+            initBackgroundParticles();
+            setTimeout(() => {
+                document.getElementById('intro-screen').style.transform = 'translateY(-100%)';
+                setTimeout(() => {
+                    document.getElementById('app-shell').classList.add('active');
+                    if(isSecretUnlocked) enableSecretGraphics();
+                }, 400);
+            }, 2200);
+        };
+
+        // 🧿 BACKGROUND PARTICLES SYSTEM
+        const canvas = document.getElementById('bg-canvas');
+        const ctx = canvas.getContext('2d');
+        let particleArray = [];
+
+        function initBackgroundParticles() {
+            canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+            particleArray = [];
+            for(let i=0; i<35; i++) {
+                particleArray.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    size: Math.random() * 2.5 + 0.5,
+                    speedY: Math.random() * 0.4 + 0.1,
+                    alpha: Math.random() * 0.4 + 0.1
+                });
             }
-        };
+            renderParticleLoop();
+        }
 
-        // ⚙️ GLOBAL STATES & PREFERENCES
-        let activeConfig = { diff: 'easy', cat: 'all' };
-        let currentSession = { wordPool: [], index: 0, score: 0, speedBonus: 0, streak: 0, lives: 3, timeLeft: 100, isDone: false };
-        let localEngineClock = null;
+        function renderParticleLoop() {
+            ctx.clearRect(0,0, canvas.width, canvas.height);
+            for(let i=0; i<particleArray.length; i++) {
+                let p = particleArray[i];
+                ctx.fillStyle = `rgba(255, 255, 255, ${p.alpha})`;
+                ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
+                p.y -= p.speedY; if(p.y < 0) p.y = canvas.height;
+            }
+            requestAnimationFrame(renderParticleLoop);
+        }
+        window.addEventListener('resize', () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; });
 
-        // 💾 STORAGE STRUCTURE
-        let userData = JSON.parse(localStorage.getItem('scramblePro_Data')) || {
-            gamesPlayed: 0, totalCorrect: 0, totalWrong: 0, bestStreak: 0, dailyStreak: 0, lastPlayTimestamp: null
-        };
-
-        // 🎵 CORE AUDIO ENGINE (Synthesized Real-time Oscillator)
-        function playSfx(type) {
+        // 🎵 PROGRAMMATIC OSCILLATOR AUDIO GENERATORS
+        function playAudioTone(flavor) {
             try {
-                const ctx = new (window.AudioContext || window.webkitAudioContext)();
-                const osc = ctx.createOscillator();
-                const gain = ctx.createGain();
-                osc.connect(gain);
-                gain.connect(ctx.destination);
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain); gain.connect(audioCtx.destination);
 
-                if (type === 'correct') {
-                    osc.frequency.setValueAtTime(523.25, ctx.currentTime); // C5
-                    osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.1); // E5
-                    gain.gain.setValueAtTime(0.1, ctx.currentTime);
-                    osc.start(); osc.stop(ctx.currentTime + 0.25);
-                } else if (type === 'wrong') {
+                if (flavor === 'right') {
+                    osc.frequency.setValueAtTime(587.33, audioCtx.currentTime);
+                    osc.frequency.setValueAtTime(880.00, audioCtx.currentTime + 0.08);
+                    gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.22);
+                } else if (flavor === 'wrong') {
                     osc.type = 'sawtooth';
-                    osc.frequency.setValueAtTime(180, ctx.currentTime);
-                    osc.frequency.linearRampToValueAtTime(100, ctx.currentTime + 0.2);
-                    gain.gain.setValueAtTime(0.1, ctx.currentTime);
-                    osc.start(); osc.stop(ctx.currentTime + 0.25);
-                } else if (type === 'win') {
-                    osc.frequency.setValueAtTime(523.25, ctx.currentTime);
-                    osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.1);
-                    osc.frequency.setValueAtTime(783.99, ctx.currentTime + 0.2); // G5
-                    osc.frequency.setValueAtTime(1046.50, ctx.currentTime + 0.3); // C6
-                    gain.gain.setValueAtTime(0.1, ctx.currentTime);
-                    osc.start(); osc.stop(ctx.currentTime + 0.5);
+                    osc.frequency.setValueAtTime(140, audioCtx.currentTime);
+                    osc.frequency.linearRampToValueAtTime(80, audioCtx.currentTime + 0.2);
+                    gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.22);
+                } else if (flavor === 'victory') {
+                    osc.frequency.setValueAtTime(523.25, audioCtx.currentTime);
+                    osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.08);
+                    osc.frequency.setValueAtTime(783.99, audioCtx.currentTime + 0.16);
+                    osc.frequency.setValueAtTime(1046.50, audioCtx.currentTime + 0.24);
+                    gain.gain.setValueAtTime(0.06, audioCtx.currentTime);
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.45);
                 }
-            } catch(e) { console.log("Audio contexts blocked or unsupported."); }
+            } catch(e) { console.log("Audio pipeline blocked by platform constraints."); }
         }
 
-        // 📳 HAPTIC FEEDBACK CONTAINER
-        function triggerHaptic(ms) {
-            if (navigator.vibrate) navigator.vibrate(ms);
-        }
+        function invokeHapticFeedback(pattern) { if (navigator.vibrate) navigator.vibrate(pattern); }
 
-        // 🎲 GENERATIVE SHUFFLER
-        function scrambleLogic(word) {
+        function calculateScramble(word) {
             let arr = word.toUpperCase().split(''), i = arr.length;
-            while (i--) {
-                let j = Math.floor(Math.random() * (i + 1));
-                [arr[i], arr[j]] = [arr[j], arr[i]];
+            while (i--) { let j = Math.floor(Math.random() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; }
+            return arr.join('');
+        }
+
+        function setPreference(category, value, element) {
+            activePrefs[category] = value;
+            document.querySelectorAll(`[data-type="${category}"]`).forEach(btn => btn.classList.remove('active'));
+            element.classList.add('active');
+
+            if (category === 'gmode') {
+                const scrambleSubPanel = document.getElementById('scramble-settings');
+                if (value === 'emoji') scrambleSubPanel.classList.add('hidden');
+                else scrambleSubPanel.classList.remove('hidden');
             }
-            let out = arr.join('');
-            return (out === word.toUpperCase() && word.length > 2) ? scrambleLogic(word) : out;
         }
 
-        // 🌓 APPEARANCE LOGIC
-        function toggleTheme() {
-            const body = document.body;
-            let current = body.getAttribute('data-theme');
-            body.setAttribute('data-theme', current === 'light' ? 'dark' : 'light');
-        }
-
-        function setOpt(type, value, elem) {
-            activeConfig[type] = value;
-            document.querySelectorAll(`[data-type="${type}"]`).forEach(b => b.classList.remove('active'));
-            elem.classList.add('active');
-        }
-
-        function switchView(id) {
+        function switchActiveView(viewId) {
             document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
-            document.getElementById(id).classList.remove('hidden');
-            if(id === 'view-dash') populateDashboardStats();
-            if(id === 'view-stats') populateLedgerPage();
+            document.getElementById(viewId).classList.remove('hidden');
+            if(viewId === 'view-dash') syncDashboardData();
+            if(viewId === 'view-stats') { syncLedgerData(); verifyBadges(); }
         }
 
-        // 📊 STATS COMPILATION ENGINE
-        function populateDashboardStats() {
-            checkDailyStreak();
-            document.getElementById('dash-games').textContent = userData.gamesPlayed;
-            document.getElementById('dash-streak').textContent = userData.dailyStreak;
+        // 📊 DATA CACHE SYNC CONTROLLERS
+        function syncDashboardData() {
+            evaluateDailyStreakTracking();
+            document.getElementById('dash-games').textContent = savedStore.games;
+            document.getElementById('dash-streak').textContent = savedStore.dailyStreak;
         }
 
-        function populateLedgerPage() {
-            const total = userData.totalCorrect + userData.totalWrong;
-            const accuracy = total === 0 ? 0 : Math.round((userData.totalCorrect / total) * 100);
-            document.getElementById('stat-accuracy').textContent = accuracy + "%";
-            document.getElementById('stat-best-streak').textContent = userData.bestStreak;
-            document.getElementById('stat-correct').textContent = userData.totalCorrect;
-            document.getElementById('stat-wrong').textContent = userData.totalWrong;
+        function syncLedgerData() {
+            const total = savedStore.correct + savedStore.wrong;
+            const absolutePct = total === 0 ? 0 : Math.round((savedStore.correct / total) * 100);
+            document.getElementById('stat-accuracy').textContent = absolutePct + "%";
+            document.getElementById('stat-best-streak').textContent = savedStore.topStreak;
+            document.getElementById('stat-correct').textContent = savedStore.correct;
+            document.getElementById('stat-wrong').textContent = savedStore.wrong;
         }
 
-        function checkDailyStreak() {
+        function evaluateDailyStreakTracking() {
             const now = new Date();
-            if (userData.lastPlayTimestamp) {
-                const lastPlay = new Date(userData.lastPlayTimestamp);
-                const diffTime = Math.abs(now - lastPlay);
-                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                if (diffDays > 1) userData.dailyStreak = 0; // Streak broken
+            if (savedStore.timestamp) {
+                const lastDate = new Date(savedStore.timestamp);
+                const elapsedDays = Math.ceil(Math.abs(now - lastDate) / (1000 * 60 * 60 * 24));
+                if (elapsedDays > 1) savedStore.dailyStreak = 0;
             }
-            localStorage.setItem('scramblePro_Data', JSON.stringify(userData));
+            localStorage.setItem('scramble_System_Data', JSON.stringify(savedStore));
         }
 
-        // 🎮 GAMEPLAY INFRASTRUCTURE
-        function initGameSession() {
-            let pool = BIBLE_DICTIONARY[activeConfig.diff][activeConfig.cat];
-            if(!pool || pool.length === 0) pool = BIBLE_DICTIONARY[activeConfig.diff]['all']; // Fallback guardrail
+        // 💡 CLUE HINT MECHANICS ENGINE
+        function revealActiveHint() {
+            if (liveSession.score >= 5 && !liveSession.lockTurn) {
+                liveSession.score -= 5;
+                document.getElementById('game-score').textContent = liveSession.score;
+                
+                let currentItem = liveSession.pool[liveSession.index];
+                document.getElementById('hint-text').textContent = currentItem.hint || 
+                    `Clue: The solution target is exactly ${currentItem.solutions[0].length} characters long.`;
+                    
+                document.getElementById('hint-btn').disabled = true;
+                document.getElementById('hint-btn').style.opacity = "0.4";
+            } else if (liveSession.score < 5) {
+                document.getElementById('hint-text').textContent = "⚠️ Not enough points! (Requires 5 pts)";
+            }
+        }
+
+        function resetHintUI() {
+            document.getElementById('hint-text').textContent = "";
+            const hintBtn = document.getElementById('hint-btn');
+            hintBtn.disabled = false;
+            hintBtn.style.opacity = "1";
+        }
+
+        // 🏆 ACHIEVEMENT BADGE VAULT ENGINE
+        function verifyBadges() {
+            const vault = document.getElementById('badge-vault');
+            if(!vault) return;
+            vault.innerHTML = ""; 
             
-            // Randomize and populate full session dynamically
-            currentSession.wordPool = pool.map(w => ({ original: w, scrambled: scrambleLogic(w) })).sort(() => Math.random() - 0.5);
-            currentSession.index = 0;
-            currentSession.score = 0;
-            currentSession.speedBonus = 0;
-            currentSession.streak = 0;
-            currentSession.lives = 3;
-            currentSession.isDone = false;
+            const achievements = [
+                { icon: "🛡️", title: "Disciple", desc: "Started 1 Game", criteria: savedStore.games > 0 },
+                { icon: "🔥", title: "Zealot", desc: "5 Answer Streak", criteria: savedStore.topStreak >= 5 },
+                { icon: "📜", title: "Scribe", desc: "25 Total Answers", criteria: savedStore.correct >= 25 },
+                { icon: "👑", title: "Theologian", desc: "Unlocked Elite Mode", criteria: isSecretUnlocked }
+            ];
 
-            userData.gamesPlayed++;
-            userData.lastPlayTimestamp = new Date().getTime();
-            localStorage.setItem('scramblePro_Data', JSON.stringify(userData));
-
-            switchView('view-game');
-            updateHudUI();
-            nextTurn();
+            achievements.forEach(badge => {
+                let earned = badge.criteria;
+                vault.innerHTML += `
+                    <div style="text-align:center; opacity: ${earned ? '1.0' : '0.25'}; background: var(--surface-accent); padding: 12px 8px; border-radius: 16px; min-width:85px; flex: 1; border: 1px solid ${earned ? 'var(--primary)' : 'var(--border)'};" title="${badge.desc}">
+                        <span style="font-size:1.6rem; display:block; margin-bottom:4px;">${badge.icon}</span>
+                        <p style="font-size:0.65rem; font-weight:900; text-transform:uppercase; color:var(--text-main);">${earned ? badge.title : 'Locked'}</p>
+                        <p style="font-size:0.55rem; color:var(--text-sub); margin-top:2px;">${badge.desc}</p>
+                    </div>
+                `;
+            });
         }
 
-        function updateHudUI() {
-            document.getElementById('game-score').textContent = currentSession.score;
-            document.getElementById('game-lives').textContent = "❤️".repeat(currentSession.lives);
-            const badge = document.getElementById('game-streak-badge');
-            if (currentSession.streak > 0) {
-                badge.classList.remove('hidden');
-                document.getElementById('game-streak-val').textContent = currentSession.streak;
+        // 🕹️ SOLO GAMEPLAY INIT ENGINE
+        function initiateLocalSoloGame() {
+            myProfile.name = document.getElementById('player-profile-name').value.trim() || "Champion";
+            myProfile.isNetworkMode = false; myProfile.isHost = false;
+
+            let sourceWords = SCRAMBLE_DICTIONARY[activePrefs.diff];
+            let targetPool = sourceWords.map(w => ({ 
+                display: calculateScramble(w.solutions[0]), 
+                solutions: [w.solutions[0].toLowerCase()],
+                hint: w.hint 
+            })).sort(() => Math.random() - 0.5).slice(0, 5);
+            
+            liveSession.pool = targetPool;
+            liveSession.gameMode = 'scramble';
+            
+            savedStore.games++;
+            savedStore.timestamp = new Date().getTime();
+            localStorage.setItem('scramble_System_Data', JSON.stringify(savedStore));
+
+            launchCommonGameplaySequence();
+        }
+
+        // 📡 MULTI-DEVICE ARENA COUPLING NETWORKS
+        function enterNetworkLobbyView() {
+            myProfile.name = document.getElementById('player-profile-name').value.trim() || "Seeker";
+            myProfile.isNetworkMode = true;
+            
+            const promptId = prompt("To join an active match, paste the Host Room ID. To generate a brand new host arena instead, leave this empty:");
+            if (promptId === null) return;
+            let targetedId = promptId.trim().toUpperCase();
+
+            if (targetedId === "") {
+                myProfile.isHost = true;
+                const generatedRoomCode = "BB-" + Math.floor(1000 + Math.random() * 9000);
+                peerInstance = new Peer(generatedRoomCode);
+
+                peerInstance.on('open', (id) => {
+                    document.getElementById('lobby-room-display').textContent = id;
+                    document.getElementById('lobby-status-text').textContent = "Waiting for players to connect...";
+                    document.getElementById('host-settings-panel').classList.remove('hidden');
+                    peerScoresCache[myProfile.name] = 0;
+                    updateLobbyListUI();
+                    switchActiveView('view-lobby');
+                });
+
+                peerInstance.on('connection', (conn) => {
+                    networkConnections.push(conn);
+                    setupNetworkDataChannels(conn);
+                });
             } else {
-                badge.classList.add('hidden');
+                myProfile.isHost = false;
+                peerInstance = new Peer();
+
+                peerInstance.on('open', () => {
+                    const conn = peerInstance.connect(targetedId);
+                    networkConnections.push(conn);
+                    setupNetworkDataChannels(conn);
+                    
+                    document.getElementById('lobby-room-display').textContent = targetedId;
+                    document.getElementById('lobby-status-text').textContent = "Connecting to Host device...";
+                    document.getElementById('client-wait-msg').classList.remove('hidden');
+                    document.getElementById('host-settings-panel').classList.add('hidden');
+                    switchActiveView('view-lobby');
+                });
             }
         }
 
-        function nextTurn() {
-            if(currentSession.index >= currentSession.wordPool.length || currentSession.lives <= 0) {
-                return finishSession();
+        function setupNetworkDataChannels(conn) {
+            conn.on('open', () => {
+                if(!myProfile.isHost) conn.send({ type: 'HANDSHAKE', name: myProfile.name });
+            });
+
+            conn.on('data', (data) => {
+                if (data.type === 'HANDSHAKE' && myProfile.isHost) {
+                    peerScoresCache[data.name] = 0;
+                    updateLobbyListUI();
+                    broadcastPayload({ type: 'LOBBY_UPDATE', list: Object.keys(peerScoresCache) });
+                }
+                if (data.type === 'LOBBY_UPDATE') updateLobbyListUI(data.list);
+                
+                if (data.type === 'START_GAME') {
+                    liveSession.pool = data.pool;
+                    liveSession.gameMode = data.mode;
+                    launchCommonGameplaySequence();
+                }
+                if (data.type === 'SCORE_UPDATE') {
+                    peerScoresCache[data.name] = data.score;
+                    if(!document.getElementById('view-end').classList.contains('hidden')) updateFinalLeaderboardUI();
+                }
+            });
+        }
+
+        function broadcastPayload(payload) {
+            networkConnections.forEach(conn => { if(conn.open) conn.send(payload); });
+        }
+
+        function updateLobbyListUI(suppliedList) {
+            const container = document.getElementById('lobby-players-list');
+            const targetList = suppliedList || Object.keys(peerScoresCache);
+            container.innerHTML = targetList.map(name => `<div style="padding:6px 0; font-weight:700">👤 ${name}</div>`).join('');
+        }
+
+        function broadcastStartSignal() {
+            let structuredPool = [];
+            if (activePrefs.gmode === 'scramble') {
+                let sourceWords = SCRAMBLE_DICTIONARY[activePrefs.diff];
+                structuredPool = sourceWords.map(w => ({ 
+                    display: calculateScramble(w.solutions[0]), 
+                    solutions: [w.solutions[0].toLowerCase()],
+                    hint: w.hint 
+                })).sort(() => Math.random() - 0.5).slice(0, 5);
+            } else {
+                structuredPool = EMOJI_DICTIONARY.map(item => ({ 
+                    display: item.puzzle, 
+                    solutions: item.answers,
+                    hint: item.hint 
+                })).sort(() => Math.random() - 0.5).slice(0, 6);
             }
-            currentSession.isDone = false;
-            document.getElementById('scrambled-target').textContent = currentSession.wordPool[currentSession.index].scrambled;
             
-            const input = document.getElementById('game-input');
-            input.value = ""; input.disabled = false; input.focus();
+            broadcastPayload({ type: 'START_GAME', pool: structuredPool, mode: activePrefs.gmode });
+            liveSession.pool = structuredPool;
+            liveSession.gameMode = activePrefs.gmode;
+            launchCommonGameplaySequence();
+        }
+
+        // 🎮 UNIVERSAL ENGINE RUNTIME INTERFACE LOOP
+        function launchCommonGameplaySequence() {
+            liveSession.index = 0; liveSession.score = 0; liveSession.speedBonus = 0;
+            liveSession.streak = 0; liveSession.lives = 3;
+            switchActiveView('view-game');
+            syncHUD();
+            displayCurrentRound();
+        }
+
+        function syncHUD() {
+            document.getElementById('game-score').textContent = liveSession.score;
+            document.getElementById('game-lives').textContent = myProfile.isNetworkMode ? `⏱️ Match Arena` : "❤️".repeat(liveSession.lives);
+            const pill = document.getElementById('game-streak-pill');
+            if (liveSession.streak > 0) {
+                pill.classList.remove('hidden');
+                document.getElementById('game-streak-val').textContent = liveSession.streak;
+            } else {
+                pill.classList.add('hidden');
+            }
+        }
+
+        function displayCurrentRound() {
+            if(liveSession.index >= liveSession.pool.length || (!myProfile.isNetworkMode && liveSession.lives <= 0)) {
+                return compileFinalReport();
+            }
+            liveSession.lockTurn = false;
+            resetHintUI();
             
-            const btn = document.getElementById('game-action-btn');
-            btn.textContent = "Check Answer"; btn.className = "btn";
+            document.getElementById('game-round-counter').textContent = `${liveSession.index + 1}/${liveSession.pool.length}`;
+            
+            const renderTarget = document.getElementById('puzzle-render-target');
+            renderTarget.textContent = liveSession.pool[liveSession.index].display;
+            
+            if (liveSession.gameMode === 'emoji') renderTarget.classList.add('emoji-mode-text');
+            else renderTarget.classList.remove('emoji-mode-text');
+
+            const txtIn = document.getElementById('game-input');
+            txtIn.value = ""; txtIn.disabled = false; txtIn.focus();
+            
+            document.getElementById('game-action-btn').textContent = "Validate";
+            document.getElementById('game-action-btn').className = "btn";
             document.getElementById('game-feedback').textContent = "";
             
-            runTimerMechanic();
+            executeChronographTimer();
         }
 
-        function runTimerMechanic() {
-            clearInterval(localEngineClock);
-            currentSession.timeLeft = 100;
+        function executeChronographTimer() {
+            clearInterval(coreSystemClock);
+            liveSession.timeLeft = 100;
             const bar = document.getElementById('game-timer');
-            
-            // Speed adjustments per difficulty setting
-            let reductionRate = activeConfig.diff === 'easy' ? 0.7 : activeConfig.diff === 'medium' ? 1.2 : 2.0;
+            let reductionRate = liveSession.gameMode === 'emoji' ? 0.9 : 1.6;
 
-            localEngineClock = setInterval(() => {
-                currentSession.timeLeft -= reductionRate;
-                if(currentSession.timeLeft <= 0) {
-                    currentSession.timeLeft = 0;
-                    clearInterval(localEngineClock);
-                    processWrongSubmission(true); // Flag timeout
+            coreSystemClock = setInterval(() => {
+                liveSession.timeLeft -= reductionRate;
+                if(liveSession.timeLeft <= 0) {
+                    liveSession.timeLeft = 0;
+                    clearInterval(coreSystemClock);
+                    evaluateSubmissionData(true);
                 }
-                bar.style.transform = `scaleX(${currentSession.timeLeft / 100})`;
+                bar.style.transform = `scaleX(${liveSession.timeLeft / 100})`;
             }, 100);
         }
 
-        function handleInputSubmission() {
-            if (currentSession.isDone) {
-                currentSession.index++;
-                nextTurn();
+        function submitGuessedAnswer() {
+            if (liveSession.lockTurn) {
+                liveSession.index++;
+                displayCurrentRound();
                 return;
             }
+            evaluateSubmissionData(false);
+        }
 
-            clearInterval(localEngineClock);
-            const input = document.getElementById('game-input');
-            let guess = input.value.trim().toLowerCase();
-            let target = currentSession.wordPool[currentSession.index].original.toLowerCase();
+        function evaluateSubmissionData(timeout) {
+            clearInterval(coreSystemClock);
+            liveSession.lockTurn = true;
+            
+            const inputField = document.getElementById('game-input');
+            let baseGuess = inputField.value.trim().toLowerCase();
+            let roundInstanceData = liveSession.pool[liveSession.index];
 
-            if (guess === target) {
-                processCorrectSubmission();
+            let isCorrect = !timeout && roundInstanceData.solutions.includes(baseGuess);
+
+            if (isCorrect) {
+                liveSession.score += 10;
+                savedStore.correct++;
+                liveSession.streak++;
+                if(liveSession.streak > savedStore.topStreak) savedStore.topStreak = liveSession.streak;
+
+                let pointsBonus = 0;
+                if(liveSession.timeLeft > 50) {
+                    pointsBonus = Math.round((liveSession.timeLeft - 50) / 8);
+                    liveSession.speedBonus += pointsBonus;
+                    liveSession.score += pointsBonus;
+                }
+
+                invokeHapticFeedback(40); playAudioTone('right');
+                document.getElementById('game-feedback').innerHTML = `<span style="color:var(--success)">✨ Confirmed! Perfect Calculation!</span>`;
             } else {
-                processWrongSubmission(false);
+                liveSession.lives--; liveSession.streak = 0; savedStore.wrong++;
+
+                invokeHapticFeedback([90, 40, 90]); playAudioTone('wrong');
+                
+                const shell = document.getElementById('app-shell');
+                shell.classList.add('shake'); setTimeout(() => shell.classList.remove('shake'), 300);
+
+                let primaryAnswer = roundInstanceData.solutions[0].toUpperCase();
+                document.getElementById('game-feedback').innerHTML = `<span style="color:var(--error)">❌ Deficit! Solution: ${primaryAnswer}</span>`;
+            }
+
+            inputField.disabled = true;
+            syncHUD();
+
+            document.getElementById('game-action-btn').textContent = "Proceed";
+            document.getElementById('game-action-btn').className = "btn btn-next";
+
+            localStorage.setItem('scramble_System_Data', JSON.stringify(savedStore));
+            verifyScoreUnlocks();
+
+            if (myProfile.isNetworkMode) {
+                peerScoresCache[myProfile.name] = liveSession.score;
+                broadcastPayload({ type: 'SCORE_UPDATE', name: myProfile.name, score: liveSession.score });
             }
         }
 
-        function processCorrectSubmission() {
-            currentSession.isDone = true;
-            currentSession.score += 10;
-            userData.totalCorrect++;
-            currentSession.streak++;
-            
-            if(currentSession.streak > userData.bestStreak) userData.bestStreak = currentSession.streak;
+        function verifyScoreUnlocks() {
+            if(liveSession.score >= 100 && !isSecretUnlocked) {
+                isSecretUnlocked = true;
+                localStorage.setItem('scramble_secret', 'true');
+                enableSecretGraphics();
+            }
+        }
 
-            // Speed Bonus Calculus
-            let bonus = 0;
-            if(currentSession.timeLeft > 50) {
-                bonus = Math.round((currentSession.timeLeft - 50) / 10);
-                currentSession.speedBonus += bonus;
-                currentSession.score += bonus;
+        function enableSecretGraphics() {
+            document.getElementById('app-shell').classList.add('secret-active');
+            const notice = document.getElementById('secret-notice');
+            if(notice) notice.classList.remove('hidden');
+        }
+
+        function compileFinalReport() {
+            clearInterval(coreSystemClock);
+            
+            if(!myProfile.isNetworkMode && liveSession.score > 20) {
+                const lastDayStr = savedStore.timestamp ? new Date(savedStore.timestamp).toDateString() : null;
+                if(lastDayStr !== new Date().toDateString()) savedStore.dailyStreak++;
+                localStorage.setItem('scramble_System_Data', JSON.stringify(savedStore));
             }
 
-            playSfx('correct');
-            document.getElementById('game-feedback').innerHTML = `<span style="color:var(--success)">✨ Correct! ${bonus > 0 ? '+'+bonus+' Speed Bonus!' : ''}</span>`;
-            flagTurnEnded();
+            document.getElementById('end-title').textContent = (!myProfile.isNetworkMode && liveSession.lives <= 0) ? "Session Defeat" : "Arena Concluded";
+            
+            updateFinalLeaderboardUI();
+            switchActiveView('view-end');
+            playAudioTone('victory');
         }
 
-        function processWrongSubmission(isTimeout) {
-            currentSession.isDone = true;
-            currentSession.lives--;
-            currentSession.streak = 0;
-            userData.totalWrong++;
+        function updateFinalLeaderboardUI() {
+            const container = document.getElementById('final-leaderboard-list');
+            if(!container) return;
 
-            triggerHaptic(200);
-            playSfx('wrong');
-            
-            const card = document.getElementById('app');
-            card.classList.add('shake');
-            setTimeout(() => card.classList.remove('shake'), 300);
-
-            let txt = isTimeout ? "⏰ Out of Time!" : "❌ Incorrect!";
-            document.getElementById('game-feedback').innerHTML = `<span style="color:var(--error)">${txt} It was ${currentSession.wordPool[currentSession.index].original}</span>`;
-            
-            flagTurnEnded();
-        }
-
-        function flagTurnEnded() {
-            document.getElementById('game-input').disabled = true;
-            updateHudUI();
-            const btn = document.getElementById('game-action-btn');
-            btn.textContent = "Next Word";
-            btn.className = "btn btn-next";
-            localStorage.setItem('scramblePro_Data', JSON.stringify(userData));
-        }
-
-        function finishSession() {
-            clearInterval(localEngineClock);
-            
-            // Check daily streak advancement validation
-            if(currentSession.score > 0) {
-                const last = userData.lastPlayTimestamp ? new Date(userData.lastPlayTimestamp).toDateString() : null;
-                const today = new Date().toDateString();
-                if(last !== today) userData.dailyStreak++;
+            if (myProfile.isNetworkMode) {
+                const sorted = Object.entries(peerScoresCache).sort((a,b) => b[1] - a[1]);
+                container.innerHTML = sorted.map(([name, val], idx) => `
+                    <div class="leaderboard-item">
+                        <span>${idx === 0 ? '👑' : '👤'} ${name}</span>
+                        <span style="color:var(--success)">${val} pts</span>
+                    </div>
+                `).join('');
+            } else {
+                container.innerHTML = `
+                    <div class="leaderboard-item"><span>👤 Base Score</span><span style="color:var(--primary)">${liveSession.score}</span></div>
+                    <div class="leaderboard-item"><span>⚡ Speed Bonus</span><span style="color:var(--success)">+${liveSession.speedBonus}</span></div>
+                `;
             }
-
-            localStorage.setItem('scramblePro_Data', JSON.stringify(userData));
-
-            document.getElementById('end-title').textContent = currentSession.lives <= 0 ? "Defeat!" : "Victory!";
-            document.getElementById('end-title').style.color = currentSession.lives <= 0 ? "var(--error)" : "var(--success)";
-            document.getElementById('end-score').textContent = currentSession.score;
-            document.getElementById('end-bonus').textContent = "+" + currentSession.speedBonus;
-
-            if(currentSession.lives > 0) playSfx('win');
-            switchView('view-end');
         }
 
-        // Initialize listener hooks for physical keyboards
-        document.getElementById('game-input').addEventListener('keypress', e => {
-            if(e.key === 'Enter') handleInputSubmission();
-        });
+        function disconnectNetworkSession() {
+            if(peerInstance) peerInstance.destroy();
+            returnToDashboardHome();
+        }
 
-        // Dynamic System Check on Boot
-        populateDashboardStats();
+        function returnToDashboardHome() {
+            myProfile.isNetworkMode = false; networkConnections = []; peerScoresCache = {};
+            switchActiveView('view-dash');
+        }
+
+        document.getElementById('game-input').addEventListener('keypress', e => { if(e.key === 'Enter') submitGuessedAnswer(); });
+        syncDashboardData();
     </script>
 </body>
 </html>

@@ -309,7 +309,7 @@
 
         <div id="view-end" class="view hidden">
             <h1 id="end-title">Session Wrap</h1>
-            <p class="subtitle" id="end-subtitle-waiting">Dynamic performance standings</p>
+            <p class="subtitle">Dynamic performance standings</p>
 
             <div id="final-leaderboard-list" style="margin-bottom: 20px;"></div>
 
@@ -383,7 +383,6 @@
         let peerInstance = null;
         let networkConnections = [];
         let peerScoresCache = {};
-        let finishedPlayersTracking = new Set(); // Keeps tab of who finished their puzzles
 
         // 💾 SYSTEM ENGINE LOCAL PERSISTENCE RECORD
         let savedStore = JSON.parse(localStorage.getItem('scramble_System_Data')) || {
@@ -603,6 +602,7 @@
                 let sourceWords = SCRAMBLE_DICTIONARY[selectedDiff] || SCRAMBLE_DICTIONARY.easy;
                 
                 let targetPool = sourceWords.map(w => {
+                    // Safe structural resolution fallback checking for both format schemas
                     let actualWord = w.word || (w.solutions && w.solutions) || "";
                     let acceptableAnswers = w.solutions ? w.solutions.map(s => s.toLowerCase()) : [actualWord.toLowerCase()];
                     
@@ -626,7 +626,7 @@
             }
         }
 
-        // 📡 MULTI-DEVICE ARENA COUPLING NETWORKS
+        // 📡 MULTI-DEVICE ARENA COUPLING NETWORKS (Insulated safely from missing library instances)
         function enterNetworkLobbyView() {
             if (typeof Peer === 'undefined') {
                 alert("Multiplayer network components failed to load from CDNs. Please verify your internet connection. Solo Game mode remains fully playable offline!");
@@ -641,8 +641,6 @@
             if (promptId === null) return;
             let targetedId = promptId.trim().toUpperCase();
 
-            finishedPlayersTracking.clear();
-
             if (targetedId === "") {
                 myProfile.isHost = true;
                 const generatedRoomCode = "BB-" + Math.floor(1000 + Math.random() * 9000);
@@ -652,7 +650,6 @@
                     document.getElementById('lobby-room-display').textContent = id;
                     document.getElementById('lobby-status-text').textContent = "Waiting for players to connect...";
                     document.getElementById('host-settings-panel').classList.remove('hidden');
-                    peerScoresCache = {};
                     peerScoresCache[myProfile.name] = 0;
                     updateLobbyListUI();
                     switchActiveView('view-lobby');
@@ -691,32 +688,16 @@
                     updateLobbyListUI();
                     broadcastPayload({ type: 'LOBBY_UPDATE', list: Object.keys(peerScoresCache) });
                 }
-                if (data.type === 'LOBBY_UPDATE') {
-                    updateLobbyListUI(data.list);
-                    // Mirroring the cache structure locally on clients
-                    data.list.forEach(name => { if(!(name in peerScoresCache)) peerScoresCache[name] = 0; });
-                }
+                if (data.type === 'LOBBY_UPDATE') updateLobbyListUI(data.list);
                 
                 if (data.type === 'START_GAME') {
                     liveSession.pool = data.pool;
                     liveSession.gameMode = data.mode;
-                    finishedPlayersTracking.clear();
                     launchCommonGameplaySequence();
                 }
                 if (data.type === 'SCORE_UPDATE') {
                     peerScoresCache[data.name] = data.score;
                     if(!document.getElementById('view-end').classList.contains('hidden')) updateFinalLeaderboardUI();
-                }
-                if (data.type === 'FINAL_SCORE_UPDATE') {
-                    peerScoresCache[data.name] = data.score;
-                    finishedPlayersTracking.add(data.name);
-                    
-                    // If we are already on the end screen, update the board real-time
-                    if(!document.getElementById('view-end').classList.contains('hidden')) {
-                        updateFinalLeaderboardUI();
-                    }
-                    
-                    checkArenaCompletion();
                 }
             });
         }
@@ -754,7 +735,6 @@
                 })).sort(() => Math.random() - 0.5).slice(0, 6);
             }
             
-            finishedPlayersTracking.clear();
             broadcastPayload({ type: 'START_GAME', pool: structuredPool, mode: activePrefs.gmode });
             liveSession.pool = structuredPool;
             liveSession.gameMode = activePrefs.gmode;
@@ -904,4 +884,74 @@
         function verifyScoreUnlocks() {
             if(liveSession.score >= 100 && !isSecretUnlocked) {
                 isSecretUnlocked = true;
-                localStorage.setItem('scramble_secret', 'true
+                localStorage.setItem('scramble_secret', 'true');
+                enableSecretGraphics();
+            }
+        }
+
+        function enableSecretGraphics() {
+            const shell = document.getElementById('app-shell');
+            const notice = document.getElementById('secret-notice');
+            if(shell) shell.classList.add('secret-active');
+            if(notice) notice.classList.remove('hidden');
+        }
+
+        function compileFinalReport() {
+            clearInterval(coreSystemClock);
+            
+            if(!myProfile.isNetworkMode && liveSession.score > 20) {
+                const lastDayStr = savedStore.timestamp ? new Date(savedStore.timestamp).toDateString() : null;
+                if(lastDayStr !== new Date().toDateString()) savedStore.dailyStreak++;
+                localStorage.setItem('scramble_System_Data', JSON.stringify(savedStore));
+            }
+
+            const endTitleEl = document.getElementById('end-title');
+            if (endTitleEl) {
+                endTitleEl.textContent = (!myProfile.isNetworkMode && liveSession.lives <= 0) ? "Session Defeat" : "Arena Concluded";
+            }
+            
+            updateFinalLeaderboardUI();
+            switchActiveView('view-end');
+            playAudioTone('victory');
+        }
+
+        function updateFinalLeaderboardUI() {
+            const container = document.getElementById('final-leaderboard-list');
+            if(!container) return;
+
+            if (myProfile.isNetworkMode) {
+                const sorted = Object.entries(peerScoresCache).sort((a,b) => b - a);
+                container.innerHTML = sorted.map(([name, val], idx) => `
+                    <div class="leaderboard-item">
+                        <span>${idx === 0 ? '👑' : '👤'} ${name}</span>
+                        <span style="color:var(--success)">${val} pts</span>
+                    </div>
+                `).join('');
+            } else {
+                container.innerHTML = `
+                    <div class="leaderboard-item"><span>👤 Base Score</span><span style="color:var(--primary)">${liveSession.score}</span></div>
+                    <div class="leaderboard-item"><span>⚡ Speed Bonus</span><span style="color:var(--success)">+${liveSession.speedBonus}</span></div>
+                `;
+            }
+        }
+
+        function disconnectNetworkSession() {
+            if(peerInstance) peerInstance.destroy();
+            returnToDashboardHome();
+        }
+
+        function returnToDashboardHome() {
+            myProfile.isNetworkMode = false; networkConnections = []; peerScoresCache = {};
+            switchActiveView('view-dash');
+        }
+
+        const gameInputEl = document.getElementById('game-input');
+        if (gameInputEl) {
+            gameInputEl.addEventListener('keypress', e => { if(e.key === 'Enter') submitGuessedAnswer(); });
+        }
+        
+        // Final secure load sequence trigger
+        syncDashboardData();
+    </script>
+</body>
+</html>

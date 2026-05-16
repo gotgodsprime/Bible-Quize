@@ -338,23 +338,23 @@
         // 🧩 ENGINES SCRIPTURAL VOCABULARY DATA MATRIX
         const SCRAMBLE_DICTIONARY = {
             easy: [
-                { solutions: ["peter"], hint: "A fisherman who became a rock-solid pillar of the early church." },
-                { solutions: ["mary"], hint: "The favored mother chosen to bring Christ into the earthly realm." },
-                { solutions: ["ruth"], hint: "A loyal Moabite widow who refused to leave her mother-in-law." },
-                { solutions: ["noah"], hint: "A righteous man who built an ark to preserve life through the flood." },
-                { solutions: ["david"], hint: "A young shepherd who defeated a giant and became Israel's king." }
+                { word: "peter", solutions: ["peter"], hint: "A fisherman who became a rock-solid pillar of the early church." },
+                { word: "mary", solutions: ["mary"], hint: "The favored mother chosen to bring Christ into the earthly realm." },
+                { word: "ruth", solutions: ["ruth"], hint: "A loyal Moabite widow who refused to leave her mother-in-law." },
+                { word: "noah", solutions: ["noah"], hint: "A righteous man who built an ark to preserve life through the flood." },
+                { word: "david", solutions: ["david"], hint: "A young shepherd who defeated a giant and became Israel's king." }
             ],
             medium: [
-                { solutions: ["elizabeth"], hint: "John the Baptist's mother, who was filled with joy during her pregnancy." },
-                { solutions: ["abraham"], hint: "Called out of Ur to become the father of many nations." },
-                { solutions: ["elijah"], hint: "A bold prophet who confronted Ahab and rode a whirlwind chariot into heaven." },
-                { solutions: ["lazarus"], hint: "A beloved friend of Jesus who walked out of his tomb after four days." }
+                { word: "elizabeth", solutions: ["elizabeth"], hint: "John the Baptist's mother, who was filled with joy during her pregnancy." },
+                { word: "abraham", solutions: ["abraham"], hint: "Called out of Ur to become the father of many nations." },
+                { word: "elijah", solutions: ["elijah"], hint: "A bold prophet who confronted Ahab and rode a whirlwind chariot into heaven." },
+                { word: "lazarus", solutions: ["lazarus"], hint: "A beloved friend of Jesus who walked out of his tomb after four days." }
             ],
             hard: [
-                { solutions: ["nebuchadnezzar"], hint: "The proud Babylonian emperor who built a colossal gold statue." },
-                { solutions: ["melchizedek"], hint: "A mysterious ancient king of Salem and priest of the Most High God." },
-                { solutions: ["methuselah"], hint: "The longest-lived patriarch recorded in biblical genealogy." },
-                { solutions: ["mephibosheth"], hint: "Jonathan's lame son who was welcomed to dine at King David's table." }
+                { word: "nebuchadnezzar", solutions: ["nebuchadnezzar"], hint: "The proud Babylonian emperor who built a colossal gold statue." },
+                { word: "melchizedek", solutions: ["melchizedek"], hint: "A mysterious ancient king of Salem and priest of the Most High God." },
+                { word: "methuselah", solutions: ["methuselah"], hint: "The longest-lived patriarch recorded in biblical genealogy." },
+                { word: "mephibosheth", solutions: ["mephibosheth"], hint: "Jonathan's lame son who was welcomed to dine at King David's table." }
             ]
         };
 
@@ -393,9 +393,11 @@
         window.onload = () => {
             initBackgroundParticles();
             setTimeout(() => {
-                document.getElementById('intro-screen').style.transform = 'translateY(-100%)';
+                const introScreen = document.getElementById('intro-screen');
+                if (introScreen) introScreen.style.transform = 'translateY(-100%)';
                 setTimeout(() => {
-                    document.getElementById('app-shell').classList.add('active');
+                    const appShell = document.getElementById('app-shell');
+                    if (appShell) appShell.classList.add('active');
                     if(isSecretUnlocked) enableSecretGraphics();
                 }, 400);
             }, 2200);
@@ -466,6 +468,7 @@
         function invokeHapticFeedback(pattern) { if (navigator.vibrate) navigator.vibrate(pattern); }
 
         function calculateScramble(word) {
+            if (!word) return "----";
             let arr = word.toUpperCase().split(''), i = arr.length;
             while (i--) { let j = Math.floor(Math.random() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; }
             return arr.join('');
@@ -590,29 +593,37 @@
 
         // 🕹️ SOLO GAMEPLAY INIT ENGINE
         function initiateLocalSoloGame() {
-            const nameIn = document.getElementById('player-profile-name');
-            myProfile.name = (nameIn && nameIn.value.trim()) || "Champion";
-            myProfile.isNetworkMode = false; myProfile.isHost = false;
+            try {
+                const nameIn = document.getElementById('player-profile-name');
+                myProfile.name = (nameIn && nameIn.value.trim()) || "Champion";
+                myProfile.isNetworkMode = false; myProfile.isHost = false;
 
-            let sourceWords = SCRAMBLE_DICTIONARY[activePrefs.diff];
-            
-            let targetPool = sourceWords.map(w => {
-                let actualWord = w.solutions;
-                return { 
-                    display: calculateScramble(actualWord), 
-                    solutions: [actualWord.toLowerCase()],
-                    hint: w.hint 
-                };
-            }).sort(() => Math.random() - 0.5).slice(0, 5);
-            
-            liveSession.pool = targetPool;
-            liveSession.gameMode = 'scramble';
-            
-            savedStore.games++;
-            savedStore.timestamp = new Date().getTime();
-            localStorage.setItem('scramble_System_Data', JSON.stringify(savedStore));
+                let selectedDiff = activePrefs.diff || 'easy';
+                let sourceWords = SCRAMBLE_DICTIONARY[selectedDiff] || SCRAMBLE_DICTIONARY.easy;
+                
+                let targetPool = sourceWords.map(w => {
+                    // Safe structural resolution fallback checking for both format schemas
+                    let actualWord = w.word || (w.solutions && w.solutions) || "";
+                    let acceptableAnswers = w.solutions ? w.solutions.map(s => s.toLowerCase()) : [actualWord.toLowerCase()];
+                    
+                    return { 
+                        display: calculateScramble(actualWord), 
+                        solutions: acceptableAnswers,
+                        hint: w.hint || "No clues available."
+                    };
+                }).sort(() => Math.random() - 0.5).slice(0, 5);
+                
+                liveSession.pool = targetPool;
+                liveSession.gameMode = 'scramble';
+                
+                savedStore.games++;
+                savedStore.timestamp = new Date().getTime();
+                localStorage.setItem('scramble_System_Data', JSON.stringify(savedStore));
 
-            launchCommonGameplaySequence();
+                launchCommonGameplaySequence();
+            } catch (err) {
+                alert("Runtime layout setup failed: " + err.message);
+            }
         }
 
         // 📡 MULTI-DEVICE ARENA COUPLING NETWORKS (Insulated safely from missing library instances)
@@ -706,13 +717,14 @@
         function broadcastStartSignal() {
             let structuredPool = [];
             if (activePrefs.gmode === 'scramble') {
-                let sourceWords = SCRAMBLE_DICTIONARY[activePrefs.diff];
+                let sourceWords = SCRAMBLE_DICTIONARY[activePrefs.diff] || SCRAMBLE_DICTIONARY.easy;
                 structuredPool = sourceWords.map(w => {
-                    let actualWord = w.solutions;
+                    let actualWord = w.word || (w.solutions && w.solutions) || "";
+                    let acceptableAnswers = w.solutions ? w.solutions.map(s => s.toLowerCase()) : [actualWord.toLowerCase()];
                     return { 
                         display: calculateScramble(actualWord), 
-                        solutions: [actualWord.toLowerCase()],
-                        hint: w.hint 
+                        solutions: acceptableAnswers,
+                        hint: w.hint || "No clues available."
                     };
                 }).sort(() => Math.random() - 0.5).slice(0, 5);
             } else {
